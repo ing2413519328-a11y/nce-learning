@@ -86,6 +86,7 @@ function loadStage(stage) {
     currentStage = stage;
     const app = document.getElementById('app');
     updateHeader();
+    renderStageNav();
 
     switch(stage) {
         case 'vocabulary':
@@ -130,6 +131,42 @@ function updateHeader() {
     document.getElementById('progressText').textContent = `${completed}/6 完成 - ${stageNames[currentIndex]}`;
 }
 
+function renderStageNav() {
+    const stages = ['vocabulary', 'spelling', 'speaking', 'sentence', 'grammar', 'listening'];
+    const stageNames = ['📚 单词', '✍️ 拼写', '🎤 口语', '📝 造句', '📖 语法', '🎧 听力'];
+    const progress = userProgress.lessons[currentLesson];
+
+    const nav = document.getElementById('stageNav');
+    nav.innerHTML = stages.map((stage, i) => {
+        const isActive = stage === currentStage;
+        const isCompleted = progress[stage];
+        let cls = 'stage-nav-tab';
+        if (isActive) cls += ' active';
+        else if (isCompleted) cls += ' completed';
+        return `<button class="${cls}" data-stage="${stage}">${stageNames[i]}</button>`;
+    }).join('');
+
+    nav.querySelectorAll('.stage-nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const stage = tab.dataset.stage;
+            switchToStage(stage);
+        });
+    });
+}
+
+function switchToStage(stage) {
+    currentStage = stage;
+    currentWordIndex = 0;
+    spellingResults = [];
+    speakingResults = [];
+    sentenceData = {};
+    grammarResults = [];
+    listeningResults = [];
+    isReviewMode = false;
+    reviewItems = [];
+    loadStage(stage);
+}
+
 function renderVocabulary() {
     const lesson = lessons[currentLesson];
     const word = lesson.vocabulary[currentWordIndex];
@@ -152,9 +189,6 @@ function renderVocabulary() {
                 ${currentWordIndex > 0 ? '<button class="btn-secondary" onclick="previousVocab()">上一个</button>' : ''}
                 <button class="btn-primary" onclick="nextVocab()">认识 →</button>
             </div>
-            <div style="margin-top: 20px; text-align: center;">
-                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
-            </div>
         </div>
     `;
 }
@@ -162,8 +196,52 @@ function renderVocabulary() {
 function speakWord(text) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
-    utterance.rate = 0.8;
+    utterance.rate = 0.85;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // 尝试选择更好的英语语音
+    const voices = speechSynthesis.getVoices();
+    const preferredVoices = [
+        'Google US English',
+        'Microsoft David - English (United States)',
+        'Samantha',
+        'Alex',
+        'Karen'
+    ];
+
+    // 查找首选语音
+    let selectedVoice = null;
+    for (const preferred of preferredVoices) {
+        selectedVoice = voices.find(voice =>
+            voice.name.includes(preferred) ||
+            (voice.lang.startsWith('en-US') || voice.lang.startsWith('en_US'))
+        );
+        if (selectedVoice) break;
+    }
+
+    // 如果没找到，使用第一个英语语音
+    if (!selectedVoice) {
+        selectedVoice = voices.find(voice =>
+            voice.lang.startsWith('en-US') ||
+            voice.lang.startsWith('en_US') ||
+            voice.lang.startsWith('en-GB') ||
+            voice.lang.startsWith('en_GB')
+        );
+    }
+
+    if (selectedVoice) {
+        utterance.voice = selectedVoice;
+    }
+
     speechSynthesis.speak(utterance);
+}
+
+// 确保语音列表加载完成
+if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = () => {
+        // 语音列表已加载
+    };
 }
 
 function previousVocab() {
@@ -195,9 +273,6 @@ function renderSpelling() {
             <div class="progress-info">${spellingResults.length} / ${lesson.vocabulary.length}</div>
 
             <div id="spellingTest"></div>
-            <div style="margin-top: 20px; text-align: center;">
-                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
-            </div>
         </div>
     `;
 }
@@ -280,9 +355,6 @@ function renderSpeaking() {
             <div class="progress-info">${speakingResults.length} / ${totalItems}</div>
 
             <div id="speakingTest"></div>
-            <div style="margin-top: 20px; text-align: center;">
-                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
-            </div>
         </div>
     `;
 }
@@ -622,9 +694,6 @@ function renderSentence() {
             <p class="stage-desc">用每个单词造3个句子，提交后继续下一个单词</p>
 
             <div id="sentenceTest"></div>
-            <div style="margin-top: 20px; text-align: center;">
-                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
-            </div>
         </div>
     `;
 }
@@ -719,9 +788,6 @@ function renderGrammar() {
             </div>
 
             <button class="btn-primary btn-submit" onclick="submitGrammar()">提交答案</button>
-            <div style="margin-top: 20px; text-align: center;">
-                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
-            </div>
         </div>
     `;
 }
@@ -815,9 +881,6 @@ function renderListening() {
             </div>
 
             <button class="btn-primary btn-submit" onclick="submitListening()">提交答案</button>
-            <div style="margin-top: 20px; text-align: center;">
-                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
-            </div>
         </div>
     `;
 }
@@ -899,34 +962,6 @@ function showFeedback(message, type) {
 
 function saveProgress() {
     localStorage.setItem('nceProgress', JSON.stringify(userProgress));
-}
-
-function skipToNextStage() {
-    const stages = ['vocabulary', 'spelling', 'speaking', 'sentence', 'grammar', 'listening'];
-    const currentIndex = stages.indexOf(currentStage);
-
-    if (currentIndex === -1) return;
-
-    // 标记当前阶段为完成
-    userProgress.lessons[currentLesson][currentStage] = true;
-    saveProgress();
-
-    // 进入下一阶段
-    if (currentIndex < stages.length - 1) {
-        loadStage(stages[currentIndex + 1]);
-    } else {
-        // 最后一个阶段，检查是否需要复习或进入下一课
-        if (hasReviewItems()) {
-            loadStage('review');
-        } else if (currentLesson < lessons.length - 1) {
-            currentLesson++;
-            userProgress.currentLesson = currentLesson;
-            saveProgress();
-            loadStage('vocabulary');
-        } else {
-            alert('🎉 恭喜完成所有课程！');
-        }
-    }
 }
 
 function showLessonSelector() {
