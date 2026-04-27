@@ -41,6 +41,18 @@ if (recognition) {
 document.addEventListener('DOMContentLoaded', () => {
     currentLesson = userProgress.currentLesson;
 
+    // 绑定课程选择按钮事件
+    const btnLessonSelect = document.getElementById('btnLessonSelect');
+    if (btnLessonSelect) {
+        btnLessonSelect.addEventListener('click', showLessonSelector);
+    }
+
+    // 绑定模态框关闭按钮事件
+    const btnModalClose = document.getElementById('btnModalClose');
+    if (btnModalClose) {
+        btnModalClose.addEventListener('click', closeLessonSelector);
+    }
+
     // 恢复当前阶段
     const lessonProgress = userProgress.lessons[currentLesson];
     if (lessonProgress.listening) {
@@ -941,7 +953,7 @@ function showLessonSelector() {
 
         return `
             <div class="lesson-item ${isCurrentLesson ? 'current' : ''} ${isCompleted ? 'completed' : ''}"
-                 onclick="selectLesson(${index})">
+                 data-lesson-index="${index}">
                 <div class="lesson-info">
                     <h3>${lesson.title}</h3>
                     <p class="lesson-desc">${lesson.vocabulary.length} 个单词</p>
@@ -954,6 +966,15 @@ function showLessonSelector() {
             </div>
         `;
     }).join('');
+
+    // 使用事件委托处理点击
+    lessonList.onclick = (e) => {
+        const lessonItem = e.target.closest('.lesson-item');
+        if (lessonItem) {
+            const index = parseInt(lessonItem.dataset.lessonIndex);
+            selectLesson(index);
+        }
+    };
 
     modal.style.display = 'flex';
     console.log('Modal displayed');
