@@ -839,14 +839,34 @@ function submitGrammar() {
 
     saveProgress();
 
+    // 禁用选项按钮和提交按钮，显示解析
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+    const submitBtn = document.querySelector('.btn-submit');
+    if (submitBtn) submitBtn.disabled = true;
+
     if (allCorrect) {
         userProgress.lessons[currentLesson].grammar = true;
         saveProgress();
-        setTimeout(() => loadStage('listening'), 1500);
+        // 添加继续按钮
+        const container = document.getElementById('grammarTest');
+        container.insertAdjacentHTML('afterend', `
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn-primary" onclick="loadStage('listening')" style="font-size:1.1em; padding:14px 40px;">
+                    ✅ 全部正确，继续下一阶段
+                </button>
+            </div>
+        `);
     } else {
-        showFeedback('有错误，请重新作答', 'error');
-        grammarResults = [];
-        setTimeout(() => loadStage('grammar'), 2000);
+        // 添加重新作答按钮
+        const container = document.getElementById('grammarTest');
+        container.insertAdjacentHTML('afterend', `
+            <div style="text-align: center; margin-top: 20px;">
+                <p style="color:#991b1b; margin-bottom:12px; font-weight:bold;">有 ${lesson.grammar.length - grammarResults.filter(r => r !== undefined && lesson.grammar[r]?.correct === r).length} 道题错误，请查看解析后重试</p>
+                <button class="btn-primary" onclick="loadStage('grammar')" style="background:#ef4444; font-size:1.1em; padding:14px 40px;">
+                    重新作答
+                </button>
+            </div>
+        `);
     }
 }
 
