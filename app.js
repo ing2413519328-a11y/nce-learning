@@ -918,8 +918,19 @@ function skipToNextStage() {
 }
 
 function showLessonSelector() {
+    console.log('showLessonSelector called'); // 调试日志
     const modal = document.getElementById('lessonSelectorModal');
     const lessonList = document.getElementById('lessonList');
+
+    if (!modal) {
+        console.error('Modal not found!');
+        return;
+    }
+
+    if (!lessonList) {
+        console.error('Lesson list not found!');
+        return;
+    }
 
     // 生成课程列表
     lessonList.innerHTML = lessons.map((lesson, index) => {
@@ -945,6 +956,7 @@ function showLessonSelector() {
     }).join('');
 
     modal.style.display = 'flex';
+    console.log('Modal displayed');
 }
 
 function closeLessonSelector() {
@@ -985,3 +997,9 @@ document.addEventListener('click', (e) => {
         closeLessonSelector();
     }
 });
+
+// 确保函数在全局作用域可用
+window.showLessonSelector = showLessonSelector;
+window.closeLessonSelector = closeLessonSelector;
+window.selectLesson = selectLesson;
+
