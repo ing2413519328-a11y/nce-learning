@@ -30,6 +30,7 @@ let reviewItems = [];
 const recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let speechRecognizer = null;
 let isRecording = false;
+let recordingTimeout = null;
 if (recognition) {
     speechRecognizer = new recognition();
     speechRecognizer.lang = 'en-US';
@@ -39,7 +40,34 @@ if (recognition) {
 
 document.addEventListener('DOMContentLoaded', () => {
     currentLesson = userProgress.currentLesson;
-    loadStage('vocabulary');
+
+    // 恢复当前阶段
+    const lessonProgress = userProgress.lessons[currentLesson];
+    if (lessonProgress.listening) {
+        // 本课已完成，检查是否需要复习或进入下一课
+        if (hasReviewItems()) {
+            loadStage('review');
+        } else if (currentLesson < lessons.length - 1) {
+            currentLesson++;
+            userProgress.currentLesson = currentLesson;
+            saveProgress();
+            loadStage('vocabulary');
+        } else {
+            loadStage('vocabulary');
+        }
+    } else if (lessonProgress.grammar) {
+        loadStage('listening');
+    } else if (lessonProgress.sentence) {
+        loadStage('grammar');
+    } else if (lessonProgress.speaking) {
+        loadStage('sentence');
+    } else if (lessonProgress.spelling) {
+        loadStage('speaking');
+    } else if (lessonProgress.vocabulary) {
+        loadStage('spelling');
+    } else {
+        loadStage('vocabulary');
+    }
 });
 
 function loadStage(stage) {
@@ -355,14 +383,21 @@ function startRecording(targetText, type) {
     status.innerHTML = '<p class="recording">🔴 正在录音... 请开始说话</p>';
 
     // 设置超时自动停止（10秒）
-    const timeout = setTimeout(() => {
+    recordingTimeout = setTimeout(() => {
         if (isRecording) {
             stopRecording();
+            const status = document.getElementById('recordingStatus');
+            if (status) {
+                status.innerHTML = '<p class="error">❌ 录音超时，请重试</p>';
+            }
         }
     }, 10000);
 
     speechRecognizer.onresult = (event) => {
-        clearTimeout(timeout);
+        if (recordingTimeout) {
+            clearTimeout(recordingTimeout);
+            recordingTimeout = null;
+        }
         const transcript = event.results[0][0].transcript.toLowerCase().trim();
         const target = targetText.toLowerCase().trim();
 
@@ -409,30 +444,51 @@ function startRecording(targetText, type) {
     };
 
     speechRecognizer.onerror = (event) => {
-        clearTimeout(timeout);
+        if (recordingTimeout) {
+            clearTimeout(recordingTimeout);
+            recordingTimeout = null;
+        }
         isRecording = false;
         recordBtn.style.display = 'inline-block';
         stopBtn.style.display = 'none';
 
         if (event.error === 'no-speech') {
             status.innerHTML = '<p class="error">❌ 没有检测到语音，请重试</p>';
+        } else if (event.error === 'aborted') {
+            // 用户手动停止，不显示错误
         } else {
-            status.innerHTML = '<p class="error">❌ 识别失败，请重试</p>';
+            status.innerHTML = `<p class="error">❌ 识别失败: ${event.error}，请重试</p>`;
         }
     };
 
     speechRecognizer.onend = () => {
-        clearTimeout(timeout);
-        if (isRecording) {
-            isRecording = false;
-            recordBtn.style.display = 'inline-block';
-            stopBtn.style.display = 'none';
+        if (recordingTimeout) {
+            clearTimeout(recordingTimeout);
+            recordingTimeout = null;
         }
+        // 只有在没有收到结果时才重置状态
+        setTimeout(() => {
+            if (isRecording) {
+                isRecording = false;
+                const recordBtn = document.getElementById('recordBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                const status = document.getElementById('recordingStatus');
+                if (recordBtn) recordBtn.style.display = 'inline-block';
+                if (stopBtn) stopBtn.style.display = 'none';
+                if (status && status.innerHTML.includes('正在录音')) {
+                    status.innerHTML = '<p class="error">❌ 没有检测到语音，请重试</p>';
+                }
+            }
+        }, 100);
     };
 
     try {
         speechRecognizer.start();
     } catch (e) {
+        if (recordingTimeout) {
+            clearTimeout(recordingTimeout);
+            recordingTimeout = null;
+        }
         isRecording = false;
         recordBtn.style.display = 'inline-block';
         stopBtn.style.display = 'none';
@@ -442,6 +498,11 @@ function startRecording(targetText, type) {
 
 function stopRecording() {
     if (!isRecording) return;
+
+    if (recordingTimeout) {
+        clearTimeout(recordingTimeout);
+        recordingTimeout = null;
+    }
 
     try {
         speechRecognizer.stop();
