@@ -140,6 +140,9 @@ function renderVocabulary() {
                 ${currentWordIndex > 0 ? '<button class="btn-secondary" onclick="previousVocab()">上一个</button>' : ''}
                 <button class="btn-primary" onclick="nextVocab()">认识 →</button>
             </div>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
+            </div>
         </div>
     `;
 }
@@ -180,6 +183,9 @@ function renderSpelling() {
             <div class="progress-info">${spellingResults.length} / ${lesson.vocabulary.length}</div>
 
             <div id="spellingTest"></div>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
+            </div>
         </div>
     `;
 }
@@ -262,6 +268,9 @@ function renderSpeaking() {
             <div class="progress-info">${speakingResults.length} / ${totalItems}</div>
 
             <div id="speakingTest"></div>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
+            </div>
         </div>
     `;
 }
@@ -601,6 +610,9 @@ function renderSentence() {
             <p class="stage-desc">用每个单词造3个句子，提交后继续下一个单词</p>
 
             <div id="sentenceTest"></div>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
+            </div>
         </div>
     `;
 }
@@ -695,6 +707,9 @@ function renderGrammar() {
             </div>
 
             <button class="btn-primary btn-submit" onclick="submitGrammar()">提交答案</button>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
+            </div>
         </div>
     `;
 }
@@ -788,6 +803,9 @@ function renderListening() {
             </div>
 
             <button class="btn-primary btn-submit" onclick="submitListening()">提交答案</button>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn-skip" onclick="skipToNextStage()">⏭️ 跳过此阶段</button>
+            </div>
         </div>
     `;
 }
@@ -869,4 +887,32 @@ function showFeedback(message, type) {
 
 function saveProgress() {
     localStorage.setItem('nceProgress', JSON.stringify(userProgress));
+}
+
+function skipToNextStage() {
+    const stages = ['vocabulary', 'spelling', 'speaking', 'sentence', 'grammar', 'listening'];
+    const currentIndex = stages.indexOf(currentStage);
+
+    if (currentIndex === -1) return;
+
+    // 标记当前阶段为完成
+    userProgress.lessons[currentLesson][currentStage] = true;
+    saveProgress();
+
+    // 进入下一阶段
+    if (currentIndex < stages.length - 1) {
+        loadStage(stages[currentIndex + 1]);
+    } else {
+        // 最后一个阶段，检查是否需要复习或进入下一课
+        if (hasReviewItems()) {
+            loadStage('review');
+        } else if (currentLesson < lessons.length - 1) {
+            currentLesson++;
+            userProgress.currentLesson = currentLesson;
+            saveProgress();
+            loadStage('vocabulary');
+        } else {
+            alert('🎉 恭喜完成所有课程！');
+        }
+    }
 }
