@@ -916,3 +916,72 @@ function skipToNextStage() {
         }
     }
 }
+
+function showLessonSelector() {
+    const modal = document.getElementById('lessonSelectorModal');
+    const lessonList = document.getElementById('lessonList');
+
+    // 生成课程列表
+    lessonList.innerHTML = lessons.map((lesson, index) => {
+        const progress = userProgress.lessons[index];
+        const completed = Object.values(progress).filter(v => v).length;
+        const isCurrentLesson = index === currentLesson;
+        const isCompleted = completed === 6;
+
+        return `
+            <div class="lesson-item ${isCurrentLesson ? 'current' : ''} ${isCompleted ? 'completed' : ''}"
+                 onclick="selectLesson(${index})">
+                <div class="lesson-info">
+                    <h3>${lesson.title}</h3>
+                    <p class="lesson-desc">${lesson.vocabulary.length} 个单词</p>
+                </div>
+                <div class="lesson-status">
+                    ${isCompleted ? '<span class="badge-success">✓ 已完成</span>' :
+                      isCurrentLesson ? '<span class="badge-current">学习中</span>' :
+                      `<span class="badge-progress">${completed}/6</span>`}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    modal.style.display = 'flex';
+}
+
+function closeLessonSelector() {
+    const modal = document.getElementById('lessonSelectorModal');
+    modal.style.display = 'none';
+}
+
+function selectLesson(lessonIndex) {
+    currentLesson = lessonIndex;
+    userProgress.currentLesson = lessonIndex;
+    saveProgress();
+
+    // 恢复该课程的进度
+    const lessonProgress = userProgress.lessons[currentLesson];
+    if (lessonProgress.listening) {
+        loadStage('vocabulary'); // 已完成，从头开始
+    } else if (lessonProgress.grammar) {
+        loadStage('listening');
+    } else if (lessonProgress.sentence) {
+        loadStage('grammar');
+    } else if (lessonProgress.speaking) {
+        loadStage('sentence');
+    } else if (lessonProgress.spelling) {
+        loadStage('speaking');
+    } else if (lessonProgress.vocabulary) {
+        loadStage('spelling');
+    } else {
+        loadStage('vocabulary');
+    }
+
+    closeLessonSelector();
+}
+
+// 点击模态框外部关闭
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('lessonSelectorModal');
+    if (e.target === modal) {
+        closeLessonSelector();
+    }
+});

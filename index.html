@@ -14,6 +14,7 @@
                 <span id="currentLessonDisplay">Lesson 1</span>
                 <span id="progressText">0/3 完成</span>
             </div>
+            <button class="btn-lesson-select" onclick="showLessonSelector()">📋 选择课程</button>
         </header>
 
         <div id="browserWarning" class="browser-warning" style="display:none;">
@@ -23,6 +24,19 @@
 
         <div id="app">
             <!-- 动态内容 -->
+        </div>
+    </div>
+
+    <!-- 课程选择弹窗 -->
+    <div id="lessonSelectorModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 选择课程</h2>
+                <button class="modal-close" onclick="closeLessonSelector()">✕</button>
+            </div>
+            <div class="modal-body" id="lessonList">
+                <!-- 动态生成课程列表 -->
+            </div>
         </div>
     </div>
 
