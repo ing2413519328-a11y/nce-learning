@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新概念英语第一册学习系统</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 新概念英语第一册</h1>
+            <div class="lesson-progress">
+                <span id="currentLessonDisplay">Lesson 1</span>
+                <span id="progressText">0/3 完成</span>
+            </div>
+        </header>
+
+        <div id="browserWarning" class="browser-warning" style="display:none;">
+            <p>⚠️ 检测到您可能使用的浏览器对语音识别支持有限</p>
+            <p>推荐使用 <strong>Chrome</strong> 浏览器以获得最佳体验</p>
+        </div>
+
+        <div id="app">
+            <!-- 动态内容 -->
+        </div>
+    </div>
+
+    <script src="lessons.js"></script>
+    <script src="review.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // 检测浏览器兼容性
+        document.addEventListener('DOMContentLoaded', () => {
+            const recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const userAgent = navigator.userAgent.toLowerCase();
+            const isChrome = /chrome/.test(userAgent) && !/edge/.test(userAgent);
+
+            if (!recognition || !isChrome) {
+                const warning = document.getElementById('browserWarning');
+                if (warning) warning.style.display = 'block';
+            }
+
+            // 检查是否需要复习或测试
+            setTimeout(() => {
+                const currentLessonNum = userProgress.currentLesson + 1;
+
+                // 每10课进行综合测试
+                if (currentLessonNum % 10 === 0 && !userProgress.lessons[userProgress.currentLesson].vocabulary) {
+                    loadStage('milestone-test');
+                }
+                // 检查是否有需要复习的内容
+                else if (hasReviewItems() && !userProgress.lessons[userProgress.currentLesson].vocabulary) {
+                    showReviewPrompt();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>

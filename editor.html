@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课程内容编辑器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .editor-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #667eea; }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            min-height: 100px;
+            font-family: monospace;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .preview {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .hint {
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <h1>📝 新概念英语课程内容编辑器</h1>
+        <p>填写课程信息，系统会自动生成代码格式</p>
+
+        <div class="form-group">
+            <label>课程编号</label>
+            <input type="number" id="lessonId" placeholder="例如: 1">
+        </div>
+
+        <div class="form-group">
+            <label>课程标题</label>
+            <input type="text" id="lessonTitle" placeholder="例如: Excuse me!">
+        </div>
+
+        <div class="form-group">
+            <label>单词列表（每行一个，格式：单词|中文|音标|例句）</label>
+            <textarea id="vocabulary" placeholder="excuse|原谅|/ɪkˈskjuːz/|Excuse me!
+me|我（宾格）|/miː/|Excuse me!"></textarea>
+            <div class="hint">用竖线 | 分隔各个字段</div>
+        </div>
+
+        <div class="form-group">
+            <label>语法题（每行一个，格式：题目|选项1,选项2,选项3,选项4|正确答案序号|解释）</label>
+            <textarea id="grammar" placeholder="Excuse ___!|I,me,my,mine|1|'Excuse me!' 是固定用法"></textarea>
+            <div class="hint">正确答案序号从0开始</div>
+        </div>
+
+        <div class="form-group">
+            <label>听力对话</label>
+            <textarea id="dialogue" placeholder="Excuse me! Yes? Is this your handbag?"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>听力题（每行一个，格式：题目|选项1,选项2,选项3,选项4|正确答案序号）</label>
+            <textarea id="listening" placeholder="What does the person say first?|Hello,Excuse me,Thank you,Pardon|1"></textarea>
+        </div>
+
+        <button onclick="generateCode()">生成代码</button>
+        <button onclick="copyCode()">复制代码</button>
+        <button onclick="clearForm()">清空</button>
+
+        <div class="preview" id="preview"></div>
+    </div>
+
+    <script>
+        function generateCode() {
+            const lessonId = document.getElementById('lessonId').value;
+            const lessonTitle = document.getElementById('lessonTitle').value;
+            const vocabText = document.getElementById('vocabulary').value;
+            const grammarText = document.getElementById('grammar').value;
+            const dialogue = document.getElementById('dialogue').value;
+            const listeningText = document.getElementById('listening').value;
+
+            // 解析单词
+            const vocabulary = vocabText.split('\n').filter(line => line.trim()).map(line => {
+                const [word, translation, phonetic, example] = line.split('|').map(s => s.trim());
+                return `            { word: "${word}", translation: "${translation}", phonetic: "${phonetic}", example: "${example}" }`;
+            });
+
+            // 解析语法题
+            const grammar = grammarText.split('\n').filter(line => line.trim()).map(line => {
+                const [question, options, correct, explanation] = line.split('|').map(s => s.trim());
+                const optionsArray = options.split(',').map(o => `"${o.trim()}"`).join(', ');
+                return `            { question: "${question}", options: [${optionsArray}], correct: ${correct}, explanation: "${explanation}" }`;
+            });
+
+            // 解析听力题
+            const listening = listeningText.split('\n').filter(line => line.trim()).map(line => {
+                const [question, options, correct] = line.split('|').map(s => s.trim());
+                const optionsArray = options.split(',').map(o => `"${o.trim()}"`).join(', ');
+                return `                { question: "${question}", options: [${optionsArray}], correct: ${correct} }`;
+            });
+
+            const code = `    {
+        id: ${lessonId},
+        title: "Lesson ${lessonId} - ${lessonTitle}",
+        vocabulary: [
+${vocabulary.join(',\n')}
+        ],
+        grammar: [
+${grammar.join(',\n')}
+        ],
+        listening: {
+            dialogue: "${dialogue}",
+            questions: [
+${listening.join(',\n')}
+            ]
+        }
+    }`;
+
+            document.getElementById('preview').textContent = code;
+        }
+
+        function copyCode() {
+            const code = document.getElementById('preview').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('代码已复制到剪贴板！');
+            });
+        }
+
+        function clearForm() {
+            document.getElementById('lessonId').value = '';
+            document.getElementById('lessonTitle').value = '';
+            document.getElementById('vocabulary').value = '';
+            document.getElementById('grammar').value = '';
+            document.getElementById('dialogue').value = '';
+            document.getElementById('listening').value = '';
+            document.getElementById('preview').textContent = '';
+        }
+    </script>
+</body>
+</html>
