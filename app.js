@@ -19,6 +19,18 @@ let userProgress = JSON.parse(localStorage.getItem('nceProgress')) || {
     }
 };
 
+// 兼容旧数据：如果 localStorage 课程数少于当前课程总数，填充默认值
+while (userProgress.lessons.length < lessons.length) {
+    userProgress.lessons.push({
+        vocabulary: false,
+        spelling: false,
+        translation: false,
+        sentence: false,
+        grammar: false,
+        listening: false
+    });
+}
+
 let spellingResults = [];
 let translationResults = [];
 let sentenceData = {};
