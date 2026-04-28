@@ -604,10 +604,36 @@ function submitGrammar() {
     let allCorrect = true;
     lesson.grammar.forEach((q, i) => {
         const feedback = document.getElementById(`grammar-feedback-${i}`);
-        if (grammarResults[i] === q.correct) {
-            feedback.innerHTML = `<p class="correct">✓ 正确！${q.explanation}</p>`;
+        const userChoice = grammarResults[i];
+        const userAnswer = q.options[userChoice] || '未作答';
+        const correctAnswer = q.options[q.correct];
+
+        let html = '';
+        if (userChoice === q.correct) {
+            html = `
+                <div class="grammar-analysis correct">
+                    <div class="analysis-header">
+                        <span class="analysis-badge correct-badge">✓ 正确</span>
+                    </div>
+                    <div class="analysis-detail">
+                        <p class="analysis-explanation">${q.explanation}</p>
+                    </div>
+                </div>
+            `;
         } else {
-            feedback.innerHTML = `<p class="incorrect">✗ 错误。${q.explanation}</p>`;
+            html = `
+                <div class="grammar-analysis incorrect">
+                    <div class="analysis-header">
+                        <span class="analysis-badge incorrect-badge">✗ 错误</span>
+                    </div>
+                    <div class="analysis-detail">
+                        <p><strong>你的选择：</strong><span class="wrong-answer">${userAnswer}</span></p>
+                        <p><strong>正确答案：</strong><span class="right-answer">${correctAnswer}</span></p>
+                        <div class="analysis-divider"></div>
+                        <p class="analysis-explanation"><strong>解析：</strong>${q.explanation}</p>
+                    </div>
+                </div>
+            `;
             allCorrect = false;
 
             // 记录语法错误
@@ -627,6 +653,7 @@ function submitGrammar() {
                 existingMistake.attempts++;
             }
         }
+        feedback.innerHTML = html;
     });
 
     saveProgress();
