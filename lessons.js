@@ -36,7 +36,16 @@ const lessons = [
                 { question: "What are they talking about?", options: ["A book", "A handbag", "A ticket", "An umbrella"], correct: 1 },
                 { question: "Is it the person's handbag?", options: ["Yes", "No", "Maybe", "Not mentioned"], correct: 0 }
             ]
-        }
+        },
+        translation: [
+            { chinese: "打扰一下！", english: "Excuse me!" },
+            { chinese: "什么事？", english: "Yes?" },
+            { chinese: "这是你的手提包吗？", english: "Is this your handbag?" },
+            { chinese: "请再说一遍？", english: "Pardon?" },
+            { chinese: "这是你的手提包吗？", english: "Is this your handbag?" },
+            { chinese: "是的，是我的。", english: "Yes, it is." },
+            { chinese: "非常感谢你。", english: "Thank you very much." }
+        ]
     },
     {
         id: 3,
@@ -75,7 +84,21 @@ const lessons = [
                 { question: "What is the ticket number?", options: ["Three", "Four", "Five", "Six"], correct: 2 },
                 { question: "Was the first umbrella correct?", options: ["Yes", "No", "Maybe", "Not mentioned"], correct: 1 }
             ]
-        }
+        },
+        translation: [
+            { chinese: "请把我的大衣和伞给我。", english: "My coat and my umbrella please." },
+            { chinese: "这是我的票。", english: "Here is my ticket." },
+            { chinese: "谢谢，先生。", english: "Thank you, sir." },
+            { chinese: "五号。", english: "Number five." },
+            { chinese: "这是你的伞和大衣。", english: "Here is your umbrella and your coat." },
+            { chinese: "这不是我的伞。", english: "This is not my umbrella." },
+            { chinese: "对不起，先生。", english: "Sorry sir." },
+            { chinese: "这是你的伞吗？", english: "Is this your umbrella?" },
+            { chinese: "不，不是。", english: "No, it isn't." },
+            { chinese: "是这个吗？", english: "Is this it?" },
+            { chinese: "是的，是的。", english: "Yes, it is." },
+            { chinese: "非常感谢你。", english: "Thank you very much." }
+        ]
     },
     {
         id: 5,
@@ -118,7 +141,20 @@ const lessons = [
                 { question: "What is Sophie's nationality?", options: ["German", "French", "Japanese", "Korean"], correct: 1 },
                 { question: "Who is German?", options: ["Sophie", "Hans", "Naoko", "Chang-woo"], correct: 1 }
             ]
-        }
+        },
+        translation: [
+            { chinese: "早上好。", english: "Good morning." },
+            { chinese: "早上好，布莱克先生。", english: "Good morning, Mr. Blake." },
+            { chinese: "这是苏菲·杜邦小姐。", english: "This is Miss Sophie Dupont." },
+            { chinese: "苏菲是个新学生。", english: "Sophie is a new student." },
+            { chinese: "她是法国人。", english: "She is French." },
+            { chinese: "苏菲，这是汉斯。", english: "Sophie, this is Hans." },
+            { chinese: "他是德国人。", english: "He is German." },
+            { chinese: "很高兴认识你。", english: "Nice to meet you." },
+            { chinese: "这是直子。", english: "And this is Naoko." },
+            { chinese: "她是日本人。", english: "She's Japanese." },
+            { chinese: "很高兴认识你。", english: "Nice to meet you." }
+        ]
     },
     {
         id: 7,
@@ -159,7 +195,25 @@ const lessons = [
                 { question: "What is Sophie's job?", options: ["Teacher", "Engineer", "Keyboard operator", "Student"], correct: 2 },
                 { question: "What is Robert's job?", options: ["Teacher", "Engineer", "Keyboard operator", "Student"], correct: 1 }
             ]
-        }
+        },
+        translation: [
+            { chinese: "我是个新学生。", english: "I am a new student." },
+            { chinese: "我叫罗伯特。", english: "My name's Robert." },
+            { chinese: "很高兴认识你。", english: "Nice to meet you." },
+            { chinese: "我叫苏菲。", english: "My name's Sophie." },
+            { chinese: "你是法国人吗？", english: "Are you French?" },
+            { chinese: "是的，我是。", english: "Yes, I am." },
+            { chinese: "你也是法国人吗？", english: "Are you French too?" },
+            { chinese: "不，我不是。", english: "No, I am not." },
+            { chinese: "你是哪国人？", english: "What nationality are you?" },
+            { chinese: "我是意大利人。", english: "I'm Italian." },
+            { chinese: "你是老师吗？", english: "Are you a teacher?" },
+            { chinese: "不，我不是。", english: "No, I'm not." },
+            { chinese: "你的工作是什么？", english: "What's your job?" },
+            { chinese: "我是键盘操作员。", english: "I'm a keyboard operator." },
+            { chinese: "你的工作是什么？", english: "What's your job?" },
+            { chinese: "我是工程师。", english: "I'm an engineer." }
+        ]
     },
     {
         id: 9,
@@ -199,7 +253,23 @@ const lessons = [
                 { question: "How is Tony?", options: ["Not mentioned", "Fine", "Sick", "Tired"], correct: 1 },
                 { question: "How is Emma?", options: ["Not good", "Fine", "Very well", "Sick"], correct: 2 }
             ]
-        }
+        },
+        translation: [
+            { chinese: "你好，海伦。", english: "Hello, Helen." },
+            { chinese: "嗨，史蒂文。", english: "Hi, Steven." },
+            { chinese: "你今天好吗？", english: "How are you today?" },
+            { chinese: "我非常好，谢谢你。", english: "I'm very well, thank you." },
+            { chinese: "你呢？", english: "And you?" },
+            { chinese: "我很好，谢谢。", english: "I'm fine, thanks." },
+            { chinese: "托尼好吗？", english: "How is Tony?" },
+            { chinese: "他很好，谢谢。", english: "He's fine, thanks." },
+            { chinese: "埃玛好吗？", english: "How's Emma?" },
+            { chinese: "她也非常好。", english: "She's very well, too." },
+            { chinese: "再见，海伦。", english: "Goodbye, Helen." },
+            { chinese: "很高兴见到你。", english: "Nice to see you." },
+            { chinese: "我也很高兴见到你，史蒂文。", english: "Nice to see you, too, Steven." },
+            { chinese: "再见。", english: "Goodbye." }
+        ]
     },
     {
         id: 11,
@@ -235,7 +305,21 @@ const lessons = [
                 { question: "Whose shirt is white?", options: ["Tim's", "Dave's", "Teacher's", "Not mentioned"], correct: 0 },
                 { question: "Who catches the shirt?", options: ["Dave", "Tim", "Teacher", "Not mentioned"], correct: 1 }
             ]
-        }
+        },
+        translation: [
+            { chinese: "那是谁的衬衫？", english: "Whose shirt is that?" },
+            { chinese: "这是你的衬衫吗，戴夫？", english: "Is this your shirt, Dave?" },
+            { chinese: "不，先生。这不是我的衬衫。", english: "No, Sir. It's not my shirt." },
+            { chinese: "这是我的衬衫。我的衬衫是蓝色的。", english: "This is my shirt. My shirt's blue." },
+            { chinese: "这件衬衫是蒂姆的吗？", english: "Is this shirt Tim's?" },
+            { chinese: "也许是，先生。", english: "Perhaps it is, sir." },
+            { chinese: "蒂姆的衬衫是白色的。", english: "Tim's shirt's white." },
+            { chinese: "蒂姆！什么事，先生？", english: "Tim! Yes, sir?" },
+            { chinese: "这是你的衬衫吗？", english: "Is this your shirt?" },
+            { chinese: "是的，先生。给你。", english: "Yes, sir. Here you are." },
+            { chinese: "接住！", english: "Catch!" },
+            { chinese: "谢谢你，先生。", english: "Thank you, sir." }
+        ]
     },
     {
         id: 13,
@@ -274,6 +358,20 @@ const lessons = [
                 { question: "Where should Louise go to see the dress?", options: ["Downstairs", "Upstairs", "Outside", "Kitchen"], correct: 1 },
                 { question: "What colour is Anna's hat?", options: ["Red", "Blue", "Green", "Yellow"], correct: 2 }
             ]
-        }
+        },
+        translation: [
+            { chinese: "你的新裙子是什么颜色的？", english: "What colour's your new dress?" },
+            { chinese: "是绿色的。", english: "It's green." },
+            { chinese: "上楼来看看吧。", english: "Come upstairs and see it." },
+            { chinese: "谢谢你。", english: "Thank you." },
+            { chinese: "看！这就是！", english: "Look! Here it is!" },
+            { chinese: "这是一条漂亮的裙子。", english: "That's nice dress." },
+            { chinese: "它很时髦。", english: "It's very smart." },
+            { chinese: "我的帽子也是新的。", english: "My hat's new, too." },
+            { chinese: "它是什么颜色的？", english: "What colour is it?" },
+            { chinese: "是同样的颜色。", english: "It's the same colour." },
+            { chinese: "也是绿色的。", english: "It's green, too." },
+            { chinese: "那是个可爱的帽子！", english: "That is a lovely hat!" }
+        ]
     }
 ];

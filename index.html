@@ -17,11 +17,6 @@
             <button class="btn-lesson-select" id="btnLessonSelect">📋 选择课程</button>
         </header>
 
-        <div id="browserWarning" class="browser-warning" style="display:none;">
-            <p>⚠️ 检测到您可能使用的浏览器对语音识别支持有限</p>
-            <p>推荐使用 <strong>Chrome</strong> 浏览器以获得最佳体验</p>
-        </div>
-
         <div id="stageNav" class="stage-nav">
             <!-- 阶段切换标签 -->
         </div>
@@ -48,18 +43,8 @@
     <script src="review.js"></script>
     <script src="app.js"></script>
     <script>
-        // 检测浏览器兼容性
+        // 检查是否需要复习或测试
         document.addEventListener('DOMContentLoaded', () => {
-            const recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const userAgent = navigator.userAgent.toLowerCase();
-            const isChrome = /chrome/.test(userAgent) && !/edge/.test(userAgent);
-
-            if (!recognition || !isChrome) {
-                const warning = document.getElementById('browserWarning');
-                if (warning) warning.style.display = 'block';
-            }
-
-            // 检查是否需要复习或测试
             setTimeout(() => {
                 const currentLessonNum = userProgress.currentLesson + 1;
 

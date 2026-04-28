@@ -459,6 +459,35 @@ button:disabled {
     border-color: #667eea;
 }
 
+.chinese-sentence {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.chinese-text {
+    font-size: 1.6em;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.translation-input {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1em;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.translation-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
 .question-card {
     background: white;
     padding: 25px;

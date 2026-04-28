@@ -1,12 +1,12 @@
 let currentLesson = 0;
-let currentStage = 'vocabulary'; // vocabulary, spelling, speaking, sentence, grammar, listening
+let currentStage = 'vocabulary'; // vocabulary, spelling, translation, sentence, grammar, listening
 let currentWordIndex = 0;
 let userProgress = JSON.parse(localStorage.getItem('nceProgress')) || {
     currentLesson: 0,
     lessons: lessons.map(() => ({
         vocabulary: false,
         spelling: false,
-        speaking: false,
+        translation: false,
         sentence: false,
         grammar: false,
         listening: false
@@ -14,29 +14,18 @@ let userProgress = JSON.parse(localStorage.getItem('nceProgress')) || {
     mistakes: {
         spelling: [],      // { word, lesson, attempts }
         grammar: [],       // { question, lesson, attempts }
-        speaking: [],      // { word, lesson, score }
+        translation: [],
         sentence: []       // { word, lesson }
     }
 };
 
 let spellingResults = [];
-let speakingResults = [];
+let translationResults = [];
 let sentenceData = {};
 let grammarResults = [];
 let listeningResults = [];
 let isReviewMode = false;
 let reviewItems = [];
-
-const recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let speechRecognizer = null;
-let isRecording = false;
-let recordingTimeout = null;
-if (recognition) {
-    speechRecognizer = new recognition();
-    speechRecognizer.lang = 'en-US';
-    speechRecognizer.continuous = false;
-    speechRecognizer.interimResults = false;
-}
 
 document.addEventListener('DOMContentLoaded', () => {
     currentLesson = userProgress.currentLesson;
@@ -71,10 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadStage('listening');
     } else if (lessonProgress.sentence) {
         loadStage('grammar');
-    } else if (lessonProgress.speaking) {
+    } else if (lessonProgress.translation) {
         loadStage('sentence');
     } else if (lessonProgress.spelling) {
-        loadStage('speaking');
+        loadStage('translation');
     } else if (lessonProgress.vocabulary) {
         loadStage('spelling');
     } else {
@@ -96,9 +85,9 @@ function loadStage(stage) {
             app.innerHTML = renderSpelling();
             initSpelling();
             break;
-        case 'speaking':
-            app.innerHTML = renderSpeaking();
-            initSpeaking();
+        case 'translation':
+            app.innerHTML = renderTranslation();
+            initTranslation();
             break;
         case 'sentence':
             app.innerHTML = renderSentence();
@@ -123,8 +112,8 @@ function updateHeader() {
     const lesson = lessons[currentLesson];
     document.getElementById('currentLessonDisplay').textContent = lesson.title;
 
-    const stages = ['vocabulary', 'spelling', 'speaking', 'sentence', 'grammar', 'listening'];
-    const stageNames = ['单词学习', '拼写测试', '口语训练', '造句训练', '语法测试', '听力测试'];
+    const stages = ['vocabulary', 'spelling', 'translation', 'sentence', 'grammar', 'listening'];
+    const stageNames = ['单词学习', '拼写测试', '翻译练习', '造句训练', '语法测试', '听力测试'];
     const currentIndex = stages.indexOf(currentStage);
     const completed = stages.slice(0, currentIndex).filter(s => userProgress.lessons[currentLesson][s]).length;
 
@@ -132,8 +121,8 @@ function updateHeader() {
 }
 
 function renderStageNav() {
-    const stages = ['vocabulary', 'spelling', 'speaking', 'sentence', 'grammar', 'listening'];
-    const stageNames = ['📚 单词', '✍️ 拼写', '🎤 口语', '📝 造句', '📖 语法', '🎧 听力'];
+    const stages = ['vocabulary', 'spelling', 'translation', 'sentence', 'grammar', 'listening'];
+    const stageNames = ['📚 单词', '✍️ 拼写', '🌏 翻译', '📝 造句', '📖 语法', '🎧 听力'];
     const progress = userProgress.lessons[currentLesson];
 
     const nav = document.getElementById('stageNav');
@@ -158,7 +147,7 @@ function switchToStage(stage) {
     currentStage = stage;
     currentWordIndex = 0;
     spellingResults = [];
-    speakingResults = [];
+    translationResults = [];
     sentenceData = {};
     grammarResults = [];
     listeningResults = [];
@@ -289,7 +278,7 @@ function showNextSpelling() {
         if (allCorrect) {
             userProgress.lessons[currentLesson].spelling = true;
             saveProgress();
-            loadStage('speaking');
+            loadStage('translation');
         } else {
             document.getElementById('spellingTest').innerHTML = `
                 <div class="result-card error">
@@ -345,277 +334,97 @@ function checkSpelling(correctWord) {
     }
 }
 
-function renderSpeaking() {
+function renderTranslation() {
     const lesson = lessons[currentLesson];
-    const totalItems = lesson.vocabulary.length * 2; // 单词 + 例句
     return `
         <div class="stage-container">
-            <h2>🎤 口语训练</h2>
-            <p class="stage-desc">跟读单词和例句，系统会检测你的发音准确率。必须达到70%以上才能继续。</p>
-            <div class="progress-info">${speakingResults.length} / ${totalItems}</div>
+            <h2>🌏 翻译练习</h2>
+            <p class="stage-desc">看中文句子，输入对应的英文翻译。全部正确才能继续。</p>
+            <div class="progress-info">${translationResults.length} / ${lesson.translation.length}</div>
 
-            <div id="speakingTest"></div>
+            <div id="translationTest"></div>
         </div>
     `;
 }
 
-function initSpeaking() {
-    if (!speechRecognizer) {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent);
-        const isIOS = /iphone|ipad|ipod/.test(userAgent);
-
-        let message = '您的浏览器不支持语音识别功能。\n\n';
-
-        if (isSafari || isIOS) {
-            message += '如果您使用的是Safari浏览器：\n';
-            message += '• 确保Safari版本 ≥ 14.1 (macOS) 或 iOS ≥ 14.5\n';
-            message += '• 在设置中允许网站访问麦克风\n';
-            message += '• 尝试刷新页面\n\n';
-            message += '如果仍然无法使用，建议使用Chrome浏览器以获得最佳体验。';
-        } else {
-            message += '建议使用以下浏览器：\n';
-            message += '• Chrome (推荐)\n';
-            message += '• Edge\n';
-            message += '• Safari 14.1+';
-        }
-
-        alert(message);
-
-        // 跳过口语训练
-        userProgress.lessons[currentLesson].speaking = true;
-        saveProgress();
-        loadStage('sentence');
-        return;
-    }
-    speakingResults = [];
-    showNextSpeaking();
+function initTranslation() {
+    translationResults = [];
+    showNextTranslation();
 }
 
-function showNextSpeaking() {
+function showNextTranslation() {
     const lesson = lessons[currentLesson];
-    const totalItems = lesson.vocabulary.length * 2; // 每个单词有：单词本身 + 例句
 
-    if (speakingResults.length >= totalItems) {
-        const avgScore = speakingResults.reduce((sum, r) => sum + r.score, 0) / speakingResults.length;
-        if (avgScore >= 70) {
-            userProgress.lessons[currentLesson].speaking = true;
+    if (translationResults.length >= lesson.translation.length) {
+        const allCorrect = translationResults.every(r => r.correct);
+        if (allCorrect) {
+            userProgress.lessons[currentLesson].translation = true;
             saveProgress();
             loadStage('sentence');
         } else {
-            document.getElementById('speakingTest').innerHTML = `
+            const wrongCount = translationResults.filter(r => !r.correct).length;
+            document.getElementById('translationTest').innerHTML = `
                 <div class="result-card error">
-                    <h3>平均准确率: ${avgScore.toFixed(1)}%</h3>
-                    <p>需要达到70%以上才能继续</p>
-                    <button class="btn-primary" onclick="initSpeaking()">重新训练</button>
+                    <h3>❌ 有 ${wrongCount} 句翻译不准确</h3>
+                    <button class="btn-primary" onclick="initTranslation()">重新练习</button>
                 </div>
             `;
         }
         return;
     }
 
-    const wordIndex = Math.floor(speakingResults.length / 2);
-    const isWord = speakingResults.length % 2 === 0; // 偶数是单词，奇数是例句
-    const word = lesson.vocabulary[wordIndex];
-
-    if (isWord) {
-        // 跟读单词
-        document.getElementById('speakingTest').innerHTML = `
-            <div class="test-card">
-                <div class="speaking-type">
-                    <span class="badge">单词跟读</span>
-                </div>
-                <div class="word-to-speak">
-                    <h3>${word.word}</h3>
-                    <p class="phonetic">${word.phonetic}</p>
-                    <p class="translation">${word.translation}</p>
-                </div>
-                <button class="btn-speak-large" onclick="speakWord('${word.word}')">🔊 听发音</button>
-                <div class="recording-controls">
-                    <button class="btn-record" id="recordBtn" onclick="startRecording('${word.word}', 'word')">🎤 开始录音</button>
-                    <button class="btn-stop" id="stopBtn" onclick="stopRecording()" style="display:none;">⏹️ 停止录音</button>
-                </div>
-                <div id="recordingStatus"></div>
-                <p class="hint">提示：点击"开始录音"后，清晰地读出单词，然后点击"停止录音"</p>
+    const item = lesson.translation[translationResults.length];
+    document.getElementById('translationTest').innerHTML = `
+        <div class="test-card">
+            <div class="chinese-sentence">
+                <p class="chinese-text">${item.chinese}</p>
             </div>
-        `;
+            <input type="text" id="translationInput" class="translation-input" placeholder="输入英文翻译" autocomplete="off">
+            <button class="btn-primary" onclick="submitTranslation('${item.english.replace(/'/g, "\\'")}')">提交</button>
+            <div id="translationFeedback"></div>
+            <p class="hint">点击下方按钮听标准英文发音</p>
+            <button class="btn-secondary" onclick="speakWord('${item.english.replace(/'/g, "\\'")}')" style="width:100%;">🔊 听标准答案</button>
+        </div>
+    `;
+
+    document.getElementById('translationInput').focus();
+    document.getElementById('translationInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') submitTranslation(item.english.replace(/'/g, "\\'"));
+    });
+}
+
+function submitTranslation(correctEnglish) {
+    const input = document.getElementById('translationInput');
+    const feedback = document.getElementById('translationFeedback');
+    const userAnswer = input.value.trim().toLowerCase();
+    const expected = correctEnglish.toLowerCase();
+
+    if (!userAnswer) {
+        alert('请输入英文翻译');
+        return;
+    }
+
+    const score = calculateSimilarity(userAnswer, expected);
+    const isCorrect = score >= 75;
+
+    translationResults.push({
+        correct: isCorrect,
+        userAnswer: input.value.trim(),
+        expected: correctEnglish,
+        score
+    });
+
+    if (isCorrect) {
+        feedback.innerHTML = `<p class="correct">✓ 准确率 ${score}%，正确！</p>`;
+        setTimeout(showNextTranslation, 1000);
     } else {
-        // 跟读例句
-        document.getElementById('speakingTest').innerHTML = `
-            <div class="test-card">
-                <div class="speaking-type">
-                    <span class="badge badge-sentence">例句跟读</span>
-                </div>
-                <div class="word-to-speak">
-                    <h3>${word.word}</h3>
-                    <p class="example-large">"${word.example}"</p>
-                    <p class="translation">${word.translation}</p>
-                </div>
-                <button class="btn-speak-large" onclick="speakWord('${word.example}')">🔊 听例句</button>
-                <div class="recording-controls">
-                    <button class="btn-record" id="recordBtn" onclick="startRecording('${word.example}', 'sentence')">🎤 开始录音</button>
-                    <button class="btn-stop" id="stopBtn" onclick="stopRecording()" style="display:none;">⏹️ 停止录音</button>
-                </div>
-                <div id="recordingStatus"></div>
-                <p class="hint">提示：点击"开始录音"后，清晰地读出例句，然后点击"停止录音"</p>
-            </div>
+        feedback.innerHTML = `
+            <p class="incorrect">✗ 准确率 ${score}%</p>
+            <p class="incorrect">标准答案: ${correctEnglish}</p>
         `;
+        setTimeout(showNextTranslation, 2500);
     }
 }
-
-function startRecording(targetText, type) {
-    const recordBtn = document.getElementById('recordBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const status = document.getElementById('recordingStatus');
-
-    if (isRecording) return;
-
-    isRecording = true;
-    recordBtn.style.display = 'none';
-    stopBtn.style.display = 'inline-block';
-    status.innerHTML = '<p class="recording">🔴 正在录音... 请开始说话</p>';
-
-    // 设置超时自动停止（10秒）
-    recordingTimeout = setTimeout(() => {
-        if (isRecording) {
-            stopRecording();
-            const status = document.getElementById('recordingStatus');
-            if (status) {
-                status.innerHTML = '<p class="error">❌ 录音超时，请重试</p>';
-            }
-        }
-    }, 10000);
-
-    speechRecognizer.onresult = (event) => {
-        if (recordingTimeout) {
-            clearTimeout(recordingTimeout);
-            recordingTimeout = null;
-        }
-        const transcript = event.results[0][0].transcript.toLowerCase().trim();
-        const target = targetText.toLowerCase().trim();
-
-        // 对于句子，使用更宽松的评分标准
-        let score;
-        if (type === 'sentence') {
-            score = calculateSentenceSimilarity(transcript, target);
-        } else {
-            score = calculateSimilarity(transcript, target);
-        }
-
-        speakingResults.push({ text: targetText, spoken: transcript, score, type });
-
-        // 记录口语错误（分数低于70%）
-        if (score < 70) {
-            const existingMistake = userProgress.mistakes.speaking.find(
-                m => m.word === targetText && m.lesson === lessons[currentLesson].id
-            );
-            if (!existingMistake) {
-                userProgress.mistakes.speaking.push({
-                    word: targetText,
-                    lesson: lessons[currentLesson].id,
-                    score: score
-                });
-                saveProgress();
-            }
-        }
-
-        const typeLabel = type === 'word' ? '单词' : '例句';
-        status.innerHTML = `
-            <div class="result ${score >= 70 ? 'success' : 'error'}">
-                <p>${typeLabel}跟读</p>
-                <p>你说的: ${transcript}</p>
-                <p>目标: ${target}</p>
-                <p>准确率: ${score}%</p>
-            </div>
-        `;
-
-        isRecording = false;
-        recordBtn.style.display = 'inline-block';
-        stopBtn.style.display = 'none';
-
-        setTimeout(showNextSpeaking, 2000);
-    };
-
-    speechRecognizer.onerror = (event) => {
-        if (recordingTimeout) {
-            clearTimeout(recordingTimeout);
-            recordingTimeout = null;
-        }
-        isRecording = false;
-        recordBtn.style.display = 'inline-block';
-        stopBtn.style.display = 'none';
-
-        if (event.error === 'no-speech') {
-            status.innerHTML = '<p class="error">❌ 没有检测到语音，请重试</p>';
-        } else if (event.error === 'aborted') {
-            // 用户手动停止，不显示错误
-        } else {
-            status.innerHTML = `<p class="error">❌ 识别失败: ${event.error}，请重试</p>`;
-        }
-    };
-
-    speechRecognizer.onend = () => {
-        if (recordingTimeout) {
-            clearTimeout(recordingTimeout);
-            recordingTimeout = null;
-        }
-        // 只有在没有收到结果时才重置状态
-        setTimeout(() => {
-            if (isRecording) {
-                isRecording = false;
-                const recordBtn = document.getElementById('recordBtn');
-                const stopBtn = document.getElementById('stopBtn');
-                const status = document.getElementById('recordingStatus');
-                if (recordBtn) recordBtn.style.display = 'inline-block';
-                if (stopBtn) stopBtn.style.display = 'none';
-                if (status && status.innerHTML.includes('正在录音')) {
-                    status.innerHTML = '<p class="error">❌ 没有检测到语音，请重试</p>';
-                }
-            }
-        }, 100);
-    };
-
-    try {
-        speechRecognizer.start();
-    } catch (e) {
-        if (recordingTimeout) {
-            clearTimeout(recordingTimeout);
-            recordingTimeout = null;
-        }
-        isRecording = false;
-        recordBtn.style.display = 'inline-block';
-        stopBtn.style.display = 'none';
-        status.innerHTML = '<p class="error">❌ 录音启动失败，请重试</p>';
-    }
-}
-
-function stopRecording() {
-    if (!isRecording) return;
-
-    if (recordingTimeout) {
-        clearTimeout(recordingTimeout);
-        recordingTimeout = null;
-    }
-
-    try {
-        speechRecognizer.stop();
-    } catch (e) {
-        console.error('停止录音失败:', e);
-    }
-
-    isRecording = false;
-    const recordBtn = document.getElementById('recordBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const status = document.getElementById('recordingStatus');
-
-    if (recordBtn) recordBtn.style.display = 'inline-block';
-    if (stopBtn) stopBtn.style.display = 'none';
-    if (status && !status.querySelector('.result')) {
-        status.innerHTML = '<p class="info">⏸️ 录音已停止，正在识别...</p>';
-    }
-}
-
-function calculateSentenceSimilarity(spoken, target) {
     // 移除标点符号
     const cleanSpoken = spoken.replace(/[.,!?;:'"]/g, '').trim();
     const cleanTarget = target.replace(/[.,!?;:'"]/g, '').trim();
@@ -1053,10 +862,10 @@ function selectLesson(lessonIndex) {
         loadStage('listening');
     } else if (lessonProgress.sentence) {
         loadStage('grammar');
-    } else if (lessonProgress.speaking) {
+    } else if (lessonProgress.translation) {
         loadStage('sentence');
     } else if (lessonProgress.spelling) {
-        loadStage('speaking');
+        loadStage('translation');
     } else if (lessonProgress.vocabulary) {
         loadStage('spelling');
     } else {
