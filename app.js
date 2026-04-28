@@ -430,40 +430,6 @@ function submitTranslation(correctEnglish) {
         setTimeout(showNextTranslation, 2500);
     }
 }
-    // 移除标点符号
-    const cleanSpoken = spoken.replace(/[.,!?;:'"]/g, '').trim();
-    const cleanTarget = target.replace(/[.,!?;:'"]/g, '').trim();
-
-    if (cleanSpoken === cleanTarget) return 100;
-
-    // 分词比较
-    const spokenWords = cleanSpoken.split(/\s+/);
-    const targetWords = cleanTarget.split(/\s+/);
-
-    // 计算匹配的单词数
-    let matchCount = 0;
-    const targetSet = new Set(targetWords);
-
-    spokenWords.forEach(word => {
-        if (targetSet.has(word)) {
-            matchCount++;
-        }
-    });
-
-    // 基于匹配单词数和总单词数计算分数
-    const matchRatio = matchCount / Math.max(spokenWords.length, targetWords.length);
-    const lengthPenalty = Math.abs(spokenWords.length - targetWords.length) / targetWords.length;
-
-    let score = matchRatio * 100 - lengthPenalty * 20;
-
-    // 如果包含目标句子的主要部分，给予额外分数
-    if (cleanSpoken.includes(cleanTarget) || cleanTarget.includes(cleanSpoken)) {
-        score = Math.max(score, 85);
-    }
-
-    return Math.max(0, Math.min(100, Math.round(score)));
-}
-
 function calculateSimilarity(str1, str2) {
     if (str1 === str2) return 100;
     if (str1.includes(str2) || str2.includes(str1)) return 85;
