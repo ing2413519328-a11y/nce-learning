@@ -373,23 +373,28 @@ function showNextTranslation() {
         return;
     }
 
-    const item = lesson.translation[translationResults.length];
+    const itemIndex = translationResults.length;
+    const item = lesson.translation[itemIndex];
     document.getElementById('translationTest').innerHTML = `
         <div class="test-card">
             <div class="chinese-sentence">
                 <p class="chinese-text">${item.chinese}</p>
             </div>
             <input type="text" id="translationInput" class="translation-input" placeholder="输入英文翻译" autocomplete="off">
-            <button class="btn-primary" onclick="submitTranslation('${item.english.replace(/'/g, "\\'")}')">提交</button>
+            <button class="btn-primary" id="submitTranslationBtn">提交</button>
             <div id="translationFeedback"></div>
             <p class="hint">点击下方按钮听标准英文发音</p>
-            <button class="btn-secondary" onclick="speakWord('${item.english.replace(/'/g, "\\'")}')" style="width:100%;">🔊 听标准答案</button>
+            <button class="btn-secondary" id="listenAnswerBtn" style="width:100%;">🔊 听标准答案</button>
         </div>
     `;
 
-    document.getElementById('translationInput').focus();
-    document.getElementById('translationInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') submitTranslation(item.english.replace(/'/g, "\\'"));
+    document.getElementById('submitTranslationBtn').onclick = () => submitTranslation(lesson.translation[itemIndex].english);
+    document.getElementById('listenAnswerBtn').onclick = () => speakWord(lesson.translation[itemIndex].english);
+
+    const input = document.getElementById('translationInput');
+    input.focus();
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') submitTranslation(lesson.translation[itemIndex].english);
     });
 }
 
