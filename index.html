@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新概念英语第一册学习系统</title>
-    <link rel="stylesheet" href="styles.css?v=1">
+    <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
     <div class="container">
@@ -14,7 +14,10 @@
                 <span id="currentLessonDisplay">Lesson 1</span>
                 <span id="progressText">0/3 完成</span>
             </div>
-            <button class="btn-lesson-select" id="btnLessonSelect">📋 选择课程</button>
+            <div style="display:flex; gap:10px; justify-content:center; margin-top:15px;">
+                <button class="btn-lesson-select" id="btnLessonSelect">📋 选择课程</button>
+                <button class="btn-lesson-select" onclick="showMistakeBook()">📖 错题本</button>
+            </div>
         </header>
 
         <div id="stageNav" class="stage-nav">
@@ -39,9 +42,9 @@
         </div>
     </div>
 
-    <script src="lessons.js?v=1"></script>
-    <script src="review.js?v=1"></script>
-    <script src="app.js?v=1"></script>
+    <script src="lessons.js?v=2"></script>
+    <script src="review.js?v=2"></script>
+    <script src="app.js?v=2"></script>
     <script>
         // 检查是否需要复习或测试
         document.addEventListener('DOMContentLoaded', () => {

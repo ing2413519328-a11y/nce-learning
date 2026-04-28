@@ -433,12 +433,39 @@ function submitTranslation(correctEnglish) {
 
     if (isCorrect) {
         feedback.innerHTML = `<p class="correct">✓ 准确率 ${score}%，正确！</p>`;
+        // 如果之前记录过错题，移除（复习时做对了）
+        const itemIndex = translationResults.length - 1;
+        const existing = userProgress.mistakes.translation.find(m => m.lesson === lessons[currentLesson].id && m.chinese === lessons[currentLesson].translation[itemIndex].chinese);
+        if (existing) {
+            userProgress.mistakes.translation = userProgress.mistakes.translation.filter(m => m !== existing);
+            saveProgress();
+        }
         setTimeout(showNextTranslation, 1000);
     } else {
         feedback.innerHTML = `
             <p class="incorrect">✗ 准确率 ${score}%</p>
             <p class="incorrect">标准答案: ${correctEnglish}</p>
         `;
+        // 记录翻译错误
+        const lesson = lessons[currentLesson];
+        const itemIndex = translationResults.length - 1;
+        const item = lesson.translation[itemIndex];
+        const existingMistake = userProgress.mistakes.translation.find(
+            m => m.lesson === lessons[currentLesson].id && m.chinese === item.chinese
+        );
+        if (!existingMistake) {
+            userProgress.mistakes.translation.push({
+                chinese: item.chinese,
+                userAnswer: input.value.trim(),
+                expected: correctEnglish,
+                score,
+                lesson: lessons[currentLesson].id,
+                attempts: 1
+            });
+        } else {
+            existingMistake.attempts++;
+        }
+        saveProgress();
         setTimeout(showNextTranslation, 2500);
     }
 }

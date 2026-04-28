@@ -2,10 +2,9 @@
 
 // 检查是否有需要复习的内容
 function hasReviewItems() {
-    const mistakes = userProgress.mistakes;
-    return mistakes.spelling.length > 0 ||
-           mistakes.grammar.length > 0 ||
-           mistakes.speaking.length > 0;
+    return userProgress.mistakes.spelling.length > 0 ||
+           userProgress.mistakes.grammar.length > 0 ||
+           userProgress.mistakes.translation.length > 0;
 }
 
 // 显示复习提示
@@ -14,7 +13,7 @@ function showReviewPrompt() {
     const mistakeCount =
         userProgress.mistakes.spelling.length +
         userProgress.mistakes.grammar.length +
-        userProgress.mistakes.speaking.length;
+        userProgress.mistakes.translation.length;
 
     app.innerHTML = `
         <div class="stage-container">
@@ -24,7 +23,7 @@ function showReviewPrompt() {
                 <ul>
                     <li>拼写错误: ${userProgress.mistakes.spelling.length} 个</li>
                     <li>语法错误: ${userProgress.mistakes.grammar.length} 个</li>
-                    <li>口语待提高: ${userProgress.mistakes.speaking.length} 个</li>
+                    <li>翻译错误: ${userProgress.mistakes.translation.length} 个</li>
                 </ul>
                 <p>建议先复习这些内容，巩固学习效果</p>
                 <div class="action-buttons">
@@ -48,8 +47,8 @@ function startReview() {
     userProgress.mistakes.grammar.forEach(item => {
         reviewItems.push({ type: 'grammar', data: item });
     });
-    userProgress.mistakes.speaking.forEach(item => {
-        reviewItems.push({ type: 'speaking', data: item });
+    userProgress.mistakes.translation.forEach(item => {
+        reviewItems.push({ type: 'translation', data: item });
     });
 
     // 打乱顺序
@@ -67,7 +66,6 @@ function skipReview() {
 // 渲染复习界面
 function renderReview() {
     if (reviewItems.length === 0) {
-        // 复习完成
         finishReview();
         return;
     }
@@ -76,6 +74,7 @@ function renderReview() {
     const app = document.getElementById('app');
 
     if (item.type === 'spelling') {
+        const word = item.data.word;
         app.innerHTML = `
             <div class="stage-container">
                 <h2>📝 拼写复习</h2>
@@ -83,16 +82,17 @@ function renderReview() {
                 <div class="progress-info">剩余 ${reviewItems.length} 个</div>
 
                 <div class="test-card">
-                    <p class="hint">单词: ${item.data.word}</p>
-                    <p class="hint">来自: Lesson ${item.data.lesson}</p>
-                    <button class="btn-speak-large" onclick="speakWord('${item.data.word}')">🔊 听发音</button>
+                    <p class="hint">提示: 来自 Lesson ${item.data.lesson}</p>
+                    <button class="btn-speak-large" onclick="speakWord('${word}')">🔊 听发音</button>
                     <input type="text" id="reviewSpellingInput" class="spelling-input" placeholder="输入单词拼写" autocomplete="off">
-                    <button class="btn-primary" onclick="checkReviewSpelling('${item.data.word}')">提交</button>
+                    <button class="btn-primary" onclick="checkReviewSpelling('${word}')">提交</button>
                 </div>
             </div>
         `;
         document.getElementById('reviewSpellingInput').focus();
     } else if (item.type === 'grammar') {
+        const q = item.data;
+        const lessonId = q.lesson;
         app.innerHTML = `
             <div class="stage-container">
                 <h2>📖 语法复习</h2>
@@ -100,39 +100,41 @@ function renderReview() {
                 <div class="progress-info">剩余 ${reviewItems.length} 个</div>
 
                 <div class="question-card">
-                    <p class="question-text">${item.data.question}</p>
-                    <p class="hint">来自: Lesson ${item.data.lesson}</p>
+                    <p class="question-text">${q.question}</p>
+                    <p class="hint">来自: Lesson ${lessonId}</p>
                     <div class="options">
-                        ${item.data.options.map((opt, i) => `
-                            <button class="option-btn" onclick="checkReviewGrammar(${i}, ${item.data.correct}, '${item.data.explanation}')">${opt}</button>
+                        ${q.options.map((opt, i) => `
+                            <button class="option-btn" onclick="checkReviewGrammar(${i}, ${q.correct}, this)">${opt}</button>
                         `).join('')}
                     </div>
-                    <div class="feedback" id="reviewFeedback"></div>
+                    <div class="feedback" id="reviewGrammarFeedback"></div>
                 </div>
             </div>
         `;
-    } else if (item.type === 'speaking') {
+    } else if (item.type === 'translation') {
+        const t = item.data;
         app.innerHTML = `
             <div class="stage-container">
-                <h2>🎤 口语复习</h2>
-                <p class="stage-desc">复习之前发音不够准确的单词</p>
+                <h2>🌏 翻译复习</h2>
+                <p class="stage-desc">复习之前翻译不准确的句子</p>
                 <div class="progress-info">剩余 ${reviewItems.length} 个</div>
 
                 <div class="test-card">
-                    <div class="word-to-speak">
-                        <h3>${item.data.word}</h3>
-                        <p class="hint">来自: Lesson ${item.data.lesson}</p>
-                        <p class="hint">上次得分: ${item.data.score}%</p>
+                    <div class="chinese-sentence">
+                        <p class="chinese-text">${t.chinese}</p>
                     </div>
-                    <button class="btn-speak-large" onclick="speakWord('${item.data.word}')">🔊 听发音</button>
-                    <div class="recording-controls">
-                        <button class="btn-record" id="recordBtn" onclick="startReviewRecording('${item.data.word}')">🎤 开始录音</button>
-                        <button class="btn-stop" id="stopBtn" onclick="stopRecording()" style="display:none;">⏹️ 停止录音</button>
-                    </div>
-                    <div id="recordingStatus"></div>
+                    <p class="hint">来自: Lesson ${t.lesson} | 上次准确率: ${t.score}%</p>
+                    <input type="text" id="reviewTranslationInput" class="translation-input" placeholder="输入英文翻译" autocomplete="off">
+                    <button class="btn-primary" id="reviewTranslationBtn">提交</button>
+                    <div id="reviewTranslationFeedback"></div>
+                    <p class="hint">点击下方按钮听标准英文发音</p>
+                    <button class="btn-secondary" id="reviewListenBtn" style="width:100%;">🔊 听标准答案</button>
                 </div>
             </div>
         `;
+        document.getElementById('reviewTranslationBtn').onclick = () => checkReviewTranslation(t.expected, t.chinese);
+        document.getElementById('reviewListenBtn').onclick = () => speakWord(t.expected);
+        document.getElementById('reviewTranslationInput').focus();
     }
 }
 
@@ -142,7 +144,6 @@ function checkReviewSpelling(correctWord) {
     const correct = input === correctWord.toLowerCase();
 
     if (correct) {
-        // 从错误列表中移除
         userProgress.mistakes.spelling = userProgress.mistakes.spelling.filter(
             item => item.word !== correctWord
         );
@@ -160,61 +161,73 @@ function checkReviewSpelling(correctWord) {
 }
 
 // 检查复习语法
-function checkReviewGrammar(selected, correct, explanation) {
-    const feedback = document.getElementById('reviewFeedback');
+function checkReviewGrammar(selected, correct, btn) {
+    const feedback = document.getElementById('reviewGrammarFeedback');
+
+    // 禁用所有选项按钮
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
 
     if (selected === correct) {
-        feedback.innerHTML = `<p class="correct">✓ 正确！${explanation}</p>`;
-        // 从错误列表中移除
+        feedback.innerHTML = `<p class="correct">✓ 正确！</p>`;
         const item = reviewItems[0].data;
         userProgress.mistakes.grammar = userProgress.mistakes.grammar.filter(
             g => g.question !== item.question
         );
         saveProgress();
         reviewItems.shift();
-        setTimeout(() => renderReview(), 2000);
+        setTimeout(() => renderReview(), 1500);
     } else {
-        feedback.innerHTML = `<p class="incorrect">✗ 还是错误。${explanation}</p>`;
+        const q = reviewItems[0].data;
+        feedback.innerHTML = `
+            <p class="incorrect">✗ 错误。正确答案: ${q.options[q.correct]}</p>
+            <p class="hint">${q.explanation}</p>
+        `;
+        // 答错不移除，下次继续复习
+        setTimeout(() => {
+            document.querySelectorAll('.option-btn').forEach(b => b.disabled = false);
+        }, 2000);
     }
 }
 
-// 开始复习录音
-function startReviewRecording(word) {
-    startRecording(word, 'word');
+// 检查复习翻译
+function checkReviewTranslation(correctEnglish, chinese) {
+    const input = document.getElementById('reviewTranslationInput');
+    const feedback = document.getElementById('reviewTranslationFeedback');
+    const userAnswer = input.value.trim().toLowerCase();
+    const expected = correctEnglish.toLowerCase();
 
-    // 重写onresult来处理复习
-    const originalOnResult = speechRecognizer.onresult;
-    speechRecognizer.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.toLowerCase().trim();
-        const target = word.toLowerCase().trim();
-        const score = calculateSimilarity(transcript, target);
+    if (!userAnswer) return;
 
-        const status = document.getElementById('recordingStatus');
-        status.innerHTML = `
-            <div class="result ${score >= 70 ? 'success' : 'error'}">
-                <p>你说的: ${transcript}</p>
-                <p>准确率: ${score}%</p>
-            </div>
+    const score = calculateSimilarity(userAnswer, expected);
+    const isCorrect = score >= 75;
+
+    if (isCorrect) {
+        feedback.innerHTML = `<p class="correct">✓ 准确率 ${score}%，正确！已掌握</p>`;
+        userProgress.mistakes.translation = userProgress.mistakes.translation.filter(
+            m => !(m.chinese === chinese && m.lesson === reviewItems[0].data.lesson)
+        );
+        saveProgress();
+        reviewItems.shift();
+        setTimeout(() => renderReview(), 1500);
+    } else {
+        feedback.innerHTML = `
+            <p class="incorrect">✗ 准确率 ${score}%</p>
+            <p class="incorrect">标准答案: ${correctEnglish}</p>
         `;
-
-        isRecording = false;
-        document.getElementById('recordBtn').style.display = 'inline-block';
-        document.getElementById('stopBtn').style.display = 'none';
-
-        if (score >= 70) {
-            // 从错误列表中移除
-            userProgress.mistakes.speaking = userProgress.mistakes.speaking.filter(
-                item => item.word !== word
-            );
+        // 更新分数
+        const mistake = userProgress.mistakes.translation.find(
+            m => m.chinese === chinese && m.lesson === reviewItems[0].data.lesson
+        );
+        if (mistake) {
+            mistake.attempts++;
+            mistake.score = score;
             saveProgress();
-            reviewItems.shift();
-            setTimeout(() => renderReview(), 2000);
-        } else {
-            setTimeout(() => {
-                status.innerHTML = '<p class="hint">再试一次</p>';
-            }, 2000);
         }
-    };
+        setTimeout(() => {
+            document.getElementById('reviewTranslationInput').value = '';
+            document.getElementById('reviewTranslationInput').focus();
+        }, 2000);
+    }
 }
 
 // 完成复习
@@ -226,7 +239,10 @@ function finishReview() {
             <div class="result-card success">
                 <p>太棒了！你已经完成了所有复习内容</p>
                 <p>现在可以开始新课程了</p>
-                <button class="btn-primary" onclick="startNewLesson()">开始新课程</button>
+                <div class="action-buttons" style="margin-top:20px;">
+                    <button class="btn-primary" onclick="startNewLesson()">继续学习</button>
+                    <button class="btn-secondary" onclick="closeReview()">关闭</button>
+                </div>
             </div>
         </div>
     `;
@@ -239,37 +255,42 @@ function startNewLesson() {
     loadStage('vocabulary');
 }
 
-// 每10课综合测试
-function renderMilestoneTest() {
-    const testLesson = currentLesson + 1;
-    const startLesson = Math.floor(testLesson / 10) * 10 - 9;
-    const endLesson = testLesson - 1;
-
-    return `
-        <div class="stage-container">
-            <h2>🏆 第${testLesson}课综合测试</h2>
-            <div class="milestone-intro">
-                <p>恭喜你完成了 Lesson ${startLesson} - ${endLesson}！</p>
-                <p>现在进行综合测试，检验学习成果</p>
-                <div class="test-info">
-                    <h3>测试内容：</h3>
-                    <ul>
-                        <li>📝 单词拼写 (10题)</li>
-                        <li>📖 语法选择 (15题)</li>
-                        <li>🎤 口语跟读 (5题)</li>
-                        <li>✍️ 造句练习 (3题)</li>
-                    </ul>
-                    <p class="hint">通过标准: 总分 ≥ 70%</p>
-                </div>
-                <button class="btn-primary" onclick="startMilestoneTest()">开始测试</button>
-            </div>
-        </div>
-    `;
+// 关闭复习，回到当前位置
+function closeReview() {
+    isReviewMode = false;
+    reviewItems = [];
+    loadStage(currentStage === 'review' ? 'vocabulary' : currentStage);
 }
 
-// 开始综合测试
-function startMilestoneTest() {
-    // TODO: 实现综合测试逻辑
-    alert('综合测试功能开发中...');
-    loadStage('vocabulary');
+// 显示错题本（从外部入口调用）
+function showMistakeBook() {
+    isReviewMode = true;
+    reviewItems = [];
+
+    userProgress.mistakes.spelling.forEach(item => {
+        reviewItems.push({ type: 'spelling', data: item });
+    });
+    userProgress.mistakes.grammar.forEach(item => {
+        reviewItems.push({ type: 'grammar', data: item });
+    });
+    userProgress.mistakes.translation.forEach(item => {
+        reviewItems.push({ type: 'translation', data: item });
+    });
+
+    if (reviewItems.length === 0) {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+            <div class="stage-container">
+                <h2>📖 错题本</h2>
+                <div class="result-card success">
+                    <p style="font-size:1.3em;">🎉 没有错题！</p>
+                    <p>继续保持</p>
+                    <button class="btn-primary" style="margin-top:20px;" onclick="switchToStage('vocabulary')">返回</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    loadStage('review');
 }
