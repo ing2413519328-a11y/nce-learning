@@ -835,8 +835,61 @@ function clearAIContent() {
     aiListeningContent = null;
 }
 
+// ====== AI 生成题目（语法 + 听力） ======
+
+// 从 AI 响应中健壮地提取 JSON
+function extractJSON(str) {
+    str = str.trim();
+    // 1) 直接解析
+    try { return JSON.parse(str); } catch(e) {}
+    // 2) 从 markdown 代码块提取
+    const m = str.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (m) try { return JSON.parse(m[1].trim()); } catch(e) {}
+    // 3) 在文本中查找 {} 或 [] 包裹的内容
+    const braceStart = str.indexOf('{');
+    const bracketStart = str.indexOf('[');
+    const start = braceStart >= 0 && (bracketStart < 0 || braceStart < bracketStart) ? braceStart : bracketStart;
+    if (start >= 0) {
+        const braceEnd = str.lastIndexOf('}');
+        const bracketEnd = str.lastIndexOf(']');
+        const end = braceEnd > start && (bracketEnd < 0 || braceEnd > bracketEnd) ? braceEnd + 1 : bracketEnd + 1;
+        if (end > start) try { return JSON.parse(str.slice(start, end)); } catch(e) {}
+    }
+    throw new Error('无法从返回内容中提取 JSON');
+}
+
+function buildVocabList(lesson) {
+    return lesson.vocabulary.map(v => v.word + ' (' + v.translation + ')').join('、');
+}
+
+async function aiChatCompletion(prompt, maxTokens) {
+    const config = getAIConfig();
+    const response = await fetch(config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
+        body: JSON.stringify({
+            model: config.model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+            max_tokens: maxTokens || 3000
+        }),
+        signal: AbortSignal.timeout(35000)
+    });
+
+    if (!response.ok) {
+        let detail = '';
+        try { detail = await response.text(); } catch(e) {}
+        throw new Error('API 请求失败 (' + response.status + ')' + (detail ? ': ' + detail.slice(0, 200) : ''));
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('API 返回内容为空');
+    return content;
+}
+
 async function generateGrammarQuestions(lesson) {
-    const vocabs = lesson.vocabulary.map(v => v.word + ' (' + v.translation + ')').join('、');
+    const vocabs = buildVocabList(lesson);
     const prompt = 'You are an English teacher creating grammar questions for "New Concept English Book 1".\n\n' +
         'Lesson ' + lesson.id + ': ' + lesson.title + '\n' +
         'Vocabulary: ' + vocabs + '\n\n' +
@@ -845,65 +898,34 @@ async function generateGrammarQuestions(lesson) {
         '- Use vocabulary from this lesson\n' +
         '- Have exactly 4 options with one correct answer\n' +
         '- Include a brief Chinese explanation of the grammar point\n\n' +
-        'Respond ONLY with a JSON object, no markdown:\n' +
-        '{"questions":[{"question":"...","options":["a","b","c","d"],"correct":0,"explanation":"Chinese explanation"}]}';
+        'Return ONLY valid JSON with this exact structure, no extra text:\n' +
+        '{"questions":[{"question":"...","options":["a","b","c","d"],"correct":0,"explanation":"中文解析"}]}';
 
-    const config = getAIConfig();
-    const response = await fetch(config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.3,
-            max_tokens: 3000
-        }),
-        signal: AbortSignal.timeout(30000)
-    });
-
-    if (!response.ok) throw new Error('API error ' + response.status);
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new Error('Empty response');
-
-    let jsonStr = content.trim();
-    const m = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (m) jsonStr = m[1];
-    return JSON.parse(jsonStr).questions;
+    const raw = await aiChatCompletion(prompt, 3500);
+    const json = extractJSON(raw);
+    const questions = json.questions || json.data || json.results || json;
+    if (!Array.isArray(questions) || questions.length === 0) {
+        throw new Error('AI 返回的题目格式有误');
+    }
+    return questions;
 }
 
 async function generateListeningContent(lesson) {
-    const vocabs = lesson.vocabulary.map(v => v.word + ' (' + v.translation + ')').join('、');
+    const vocabs = buildVocabList(lesson);
     const prompt = 'You are an English teacher creating listening exercises for "New Concept English Book 1".\n\n' +
         'Lesson ' + lesson.id + ': ' + lesson.title + '\n' +
         'Vocabulary: ' + vocabs + '\n\n' +
         'Create a short natural dialogue (4-6 exchanges) between two speakers using vocabulary from this lesson.\n' +
-        'Then create 3 comprehension questions about the dialogue.\n\n' +
-        'Respond ONLY with a JSON object, no markdown:\n' +
-        '{"dialogue":"A: ...\\nB: ...","questions":[{"question":"...","options":["a","b","c","d"],"correct":0,"explanation":"Chinese explanation"}]}';
+        'Then create 3 comprehension questions about the dialogue, each with 4 options and a Chinese explanation.\n\n' +
+        'Return ONLY valid JSON with this exact structure, no extra text:\n' +
+        '{"dialogue":"A: ...\\nB: ...","questions":[{"question":"...","options":["a","b","c","d"],"correct":0,"explanation":"中文解析"}]}';
 
-    const config = getAIConfig();
-    const response = await fetch(config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.3,
-            max_tokens: 3000
-        }),
-        signal: AbortSignal.timeout(30000)
-    });
-
-    if (!response.ok) throw new Error('API error ' + response.status);
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new Error('Empty response');
-
-    let jsonStr = content.trim();
-    const m = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (m) jsonStr = m[1];
-    return JSON.parse(jsonStr);
+    const raw = await aiChatCompletion(prompt, 3500);
+    const json = extractJSON(raw);
+    if (!json.dialogue || !Array.isArray(json.questions) || json.questions.length === 0) {
+        throw new Error('AI 返回的听力内容格式有误');
+    }
+    return json;
 }
 
 function initAIGrammar() {
@@ -913,6 +935,7 @@ function initAIGrammar() {
     if (cached) {
         aiGrammarQuestions = cached;
         aiGrammarLessonId = currentLesson;
+        grammarResults = [];
         app.innerHTML = renderGrammar() + '<p style="text-align:center;color:#64748b;font-size:0.85em;margin-top:-10px;">🤖 AI 生成 · <a href="#" onclick="event.preventDefault();switchToPresetGrammar()" style="color:#667eea;">使用预设题目</a></p>';
         return;
     }
@@ -928,7 +951,8 @@ function initAIGrammar() {
     }).catch(err => {
         console.error('AI grammar generation failed:', err);
         showFeedback('AI 生成失败：' + err.message + '，使用预设题目', 'error');
-        app.innerHTML = renderGrammar();
+        aiGrammarLessonId = currentLesson; // 避免反复重试
+        app.innerHTML = renderGrammar() + '<p style="text-align:center;color:#64748b;font-size:0.85em;margin-top:-10px;"><a href="#" onclick="event.preventDefault();initAIGrammar()" style="color:#667eea;">重新使用 AI 生成</a></p>';
     });
 }
 
@@ -939,6 +963,7 @@ function initAIListening() {
     if (cached) {
         aiListeningContent = cached;
         aiListeningLessonId = currentLesson;
+        listeningResults = [];
         app.innerHTML = renderListening();
         return;
     }
@@ -954,6 +979,7 @@ function initAIListening() {
     }).catch(err => {
         console.error('AI listening generation failed:', err);
         showFeedback('AI 生成失败：' + err.message + '，使用预设题目', 'error');
+        aiListeningLessonId = currentLesson; // 避免反复重试
         app.innerHTML = renderListening();
     });
 }
