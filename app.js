@@ -696,7 +696,7 @@ async function checkGrammarWithAI(word, sentences) {
             temperature: 0.1,
             max_tokens: 1000
         }),
-        signal: AbortSignal.timeout(20000)
+        signal: AbortSignal.timeout(60000)
     });
 
     if (!response.ok) {
@@ -873,7 +873,7 @@ async function aiChatCompletion(prompt, maxTokens) {
             temperature: 0.3,
             max_tokens: maxTokens || 3000
         }),
-        signal: AbortSignal.timeout(35000)
+        signal: AbortSignal.timeout(180000)
     });
 
     if (!response.ok) {
