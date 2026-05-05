@@ -39,6 +39,7 @@ function showReviewPrompt() {
 function startReview() {
     isReviewMode = true;
     reviewItems = [];
+    reviewBusy = false;
 
     // 收集所有需要复习的内容
     userProgress.mistakes.spelling.forEach(item => {
@@ -140,6 +141,8 @@ function renderReview() {
 
 // 检查复习拼写
 function checkReviewSpelling(correctWord) {
+    if (reviewBusy) return;
+    reviewBusy = true;
     const input = document.getElementById('reviewSpellingInput').value.trim().toLowerCase();
     const correct = input === correctWord.toLowerCase();
 
@@ -150,22 +153,20 @@ function checkReviewSpelling(correctWord) {
         saveProgress();
         showFeedback('✓ 正确！已掌握', 'success');
         reviewItems.shift();
-        setTimeout(() => renderReview(), 1000);
+        setTimeout(() => { reviewBusy = false; renderReview(); }, 1000);
     } else {
-        showFeedback(`✗ 还是错误。正确拼写: ${correctWord}`, 'error');
-        setTimeout(() => {
-            document.getElementById('reviewSpellingInput').value = '';
-            document.getElementById('reviewSpellingInput').focus();
-        }, 2000);
+        showFeedback(`✗ 错误。正确拼写: ${correctWord}`, 'error');
+        const item = reviewItems.shift();
+        reviewItems.push(item);
+        setTimeout(() => { reviewBusy = false; renderReview(); }, 1500);
     }
 }
 
 // 检查复习语法
 function checkReviewGrammar(selected, correct, btn) {
+    if (reviewBusy) return;
+    reviewBusy = true;
     const feedback = document.getElementById('reviewGrammarFeedback');
-
-    // 禁用所有选项按钮
-    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
 
     if (selected === correct) {
         feedback.innerHTML = `<p class="correct">✓ 正确！</p>`;
@@ -175,28 +176,30 @@ function checkReviewGrammar(selected, correct, btn) {
         );
         saveProgress();
         reviewItems.shift();
-        setTimeout(() => renderReview(), 1500);
+        setTimeout(() => { reviewBusy = false; renderReview(); }, 1500);
     } else {
         const q = reviewItems[0].data;
         feedback.innerHTML = `
             <p class="incorrect">✗ 错误。正确答案: ${q.options[q.correct]}</p>
             <p class="hint">${q.explanation}</p>
         `;
-        // 答错不移除，下次继续复习
-        setTimeout(() => {
-            document.querySelectorAll('.option-btn').forEach(b => b.disabled = false);
-        }, 2000);
+        // 移到末尾稍后重试
+        const item = reviewItems.shift();
+        reviewItems.push(item);
+        setTimeout(() => { reviewBusy = false; renderReview(); }, 2000);
     }
 }
 
 // 检查复习翻译
 function checkReviewTranslation(correctEnglish, chinese) {
+    if (reviewBusy) return;
+    reviewBusy = true;
     const input = document.getElementById('reviewTranslationInput');
     const feedback = document.getElementById('reviewTranslationFeedback');
     const userAnswer = input.value.trim().toLowerCase();
     const expected = correctEnglish.toLowerCase();
 
-    if (!userAnswer) return;
+    if (!userAnswer) { reviewBusy = false; return; }
 
     const score = calculateSimilarity(userAnswer, expected);
     const isCorrect = score >= 75;
@@ -208,7 +211,7 @@ function checkReviewTranslation(correctEnglish, chinese) {
         );
         saveProgress();
         reviewItems.shift();
-        setTimeout(() => renderReview(), 1500);
+        setTimeout(() => { reviewBusy = false; renderReview(); }, 1500);
     } else {
         feedback.innerHTML = `
             <p class="incorrect">✗ 准确率 ${score}%</p>
@@ -223,10 +226,10 @@ function checkReviewTranslation(correctEnglish, chinese) {
             mistake.score = score;
             saveProgress();
         }
-        setTimeout(() => {
-            document.getElementById('reviewTranslationInput').value = '';
-            document.getElementById('reviewTranslationInput').focus();
-        }, 2000);
+        // 移到末尾稍后重试
+        const item = reviewItems.shift();
+        reviewItems.push(item);
+        setTimeout(() => { reviewBusy = false; renderReview(); }, 2000);
     }
 }
 
@@ -266,6 +269,7 @@ function closeReview() {
 function showMistakeBook() {
     isReviewMode = true;
     reviewItems = [];
+    reviewBusy = false;
 
     userProgress.mistakes.spelling.forEach(item => {
         reviewItems.push({ type: 'spelling', data: item });

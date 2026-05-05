@@ -38,6 +38,7 @@ let grammarResults = [];
 let listeningResults = [];
 let isReviewMode = false;
 let reviewItems = [];
+let reviewBusy = false;
 
 document.addEventListener('DOMContentLoaded', () => {
     currentLesson = userProgress.currentLesson;
