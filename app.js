@@ -39,6 +39,50 @@ let listeningResults = [];
 let isReviewMode = false;
 let reviewItems = [];
 let reviewBusy = false;
+let aiConfig = loadAIConfig();
+
+// ====== AI 配置 ======
+
+function getAIConfig() {
+    return {
+        baseUrl: localStorage.getItem('nceAIBaseUrl') || 'https://api.openai.com/v1',
+        apiKey: localStorage.getItem('nceAIKey') || '',
+        model: localStorage.getItem('nceAIModel') || 'gpt-4o-mini'
+    };
+}
+
+function saveAIConfig() {
+    const url = document.getElementById('aiBaseUrl').value.trim() || 'https://api.openai.com/v1';
+    const key = document.getElementById('aiApiKey').value.trim();
+    const model = document.getElementById('aiModel').value.trim() || 'gpt-4o-mini';
+    localStorage.setItem('nceAIBaseUrl', url);
+    localStorage.setItem('nceAIKey', key);
+    localStorage.setItem('nceAIModel', model);
+    aiConfig = { baseUrl: url, apiKey: key, model: model };
+}
+
+function showAISettings() {
+    const modal = document.getElementById('aiSettingsModal');
+    document.getElementById('aiBaseUrl').value = aiConfig.baseUrl;
+    document.getElementById('aiApiKey').value = aiConfig.apiKey;
+    document.getElementById('aiModel').value = aiConfig.model;
+    modal.style.display = 'flex';
+    modal.onclick = (e) => { if (e.target === modal) closeAISettings(); };
+}
+
+function closeAISettings() {
+    document.getElementById('aiSettingsModal').style.display = 'none';
+}
+
+function saveAISettings() {
+    saveAIConfig();
+    closeAISettings();
+    showFeedback('✓ AI 配置已保存', 'success');
+}
+
+function loadAIConfig() {
+    return getAIConfig();
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     currentLesson = userProgress.currentLesson;
@@ -559,6 +603,7 @@ function showNextSentence() {
             </div>
 
             <button class="btn-primary" onclick="submitSentences('${word.word}')">提交</button>
+            <div id="sentenceResult"></div>
         </div>
     `;
 }
@@ -581,9 +626,170 @@ function submitSentences(word) {
         return;
     }
 
+    // 如果配置了 AI，进行语法检测
+    const config = getAIConfig();
+    if (config.apiKey) {
+        doAICheck(word, [s1, s2, s3]);
+    } else {
+        sentenceData[word] = [s1, s2, s3];
+        showFeedback('✓ 很好！继续下一个单词', 'success');
+        setTimeout(showNextSentence, 800);
+    }
+}
+
+// ====== AI 语法检测 ======
+
+async function checkGrammarWithAI(word, sentences) {
+    const config = getAIConfig();
+    const prompt = `你是一位英语老师。请检查用单词 "${word}" 造的以下 3 个句子，判断每个句子是否语法正确、通顺自然。
+
+要求：
+- 对英语学习者要适度严格，但对于合理的变体表达要宽容（比如多种正确说法都应接受）
+- 关注语法错误（主谓一致、时态、冠词、介词、词性等）和通顺度
+- 如果句子完全正确，correct 为 true，issues 和 suggestion 为 null
+- 如果句子有问题，correct 为 false，issues 列出具体问题，suggestion 给出修改建议
+
+句子：
+1. ${sentences[0]}
+2. ${sentences[1]}
+3. ${sentences[2]}
+
+请严格按照以下 JSON 格式返回，不要加 markdown 标记：
+{
+  "results": [
+    {
+      "sentence_index": 0,
+      "correct": true,
+      "issues": null,
+      "suggestion": null
+    },
+    {
+      "sentence_index": 1,
+      "correct": false,
+      "issues": ["缺少冠词", "时态错误"],
+      "suggestion": "纠正后的完整句子"
+    }
+  ]
+}`;
+
+    const response = await fetch(config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + config.apiKey
+        },
+        body: JSON.stringify({
+            model: config.model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.1,
+            max_tokens: 1000
+        }),
+        signal: AbortSignal.timeout(20000)
+    });
+
+    if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        throw new Error(`API 请求失败 (${response.status})${errBody ? ': ' + errBody.slice(0, 200) : ''}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('API 返回内容为空');
+
+    // 尝试解析 JSON（可能包裹在 markdown 代码块中）
+    let jsonStr = content.trim();
+    const codeBlockMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) jsonStr = codeBlockMatch[1];
+
+    const result = JSON.parse(jsonStr);
+    return result.results;
+}
+
+function doAICheck(word, sentences) {
+    const resultDiv = document.getElementById('sentenceResult');
+    const submitBtn = document.querySelector('#sentenceTest .btn-primary');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'AI 检查中...'; }
+
+    resultDiv.innerHTML = '<p style="text-align:center;color:#667eea;padding:15px;">⏳ AI 正在检查语法，请稍候...</p>';
+
+    checkGrammarWithAI(word, sentences).then(results => {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '提交'; }
+
+        let html = '<div style="margin-top:20px;border-top:2px solid #e2e8f0;padding-top:20px;">';
+        let allCorrect = true;
+
+        results.forEach((r) => {
+            const icon = r.correct ? '✅' : '❌';
+            const bgColor = r.correct ? '#f0fdf4' : '#fef2f2';
+            const borderColor = r.correct ? '#bbf7d0' : '#fecaca';
+            html += `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:8px;padding:12px;margin-bottom:10px;">
+                <p style="font-weight:600;margin-bottom:4px;">${icon} ${r.sentence}</p>`;
+            if (!r.correct && r.issues) {
+                html += `<p style="color:#991b1b;margin:4px 0;font-size:0.95em;">问题：${r.issues.join('；')}</p>`;
+                if (r.suggestion) {
+                    html += `<p style="color:#065f46;margin:4px 0;font-size:0.95em;">建议：${r.suggestion}</p>`;
+                }
+            }
+            html += '</div>';
+            if (!r.correct) allCorrect = false;
+        });
+
+        if (allCorrect) {
+            html += '<p style="text-align:center;color:#065f46;font-weight:bold;font-size:1.1em;margin-top:10px;">✅ 所有句子语法正确，表达通顺！</p>';
+            html += '</div>';
+            resultDiv.innerHTML = html;
+            sentenceData[word] = sentences;
+            setTimeout(showNextSentence, 1500);
+        } else {
+            html += `<div style="text-align:center;margin-top:15px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn-primary" onclick="retryAICheck('${word}')">修改后重新检查</button>
+                <button class="btn-secondary" onclick="skipAICheck('${word}')">跳过检查，继续</button>
+            </div>`;
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        }
+    }).catch(err => {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '提交'; }
+        resultDiv.innerHTML = `
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:15px;margin-top:15px;">
+                <p style="color:#991b1b;font-weight:600;">⚠️ AI 检查失败</p>
+                <p style="color:#991b1b;margin:8px 0;font-size:0.95em;">${err.message}</p>
+                <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+                    <button class="btn-primary" onclick="retryAICheck('${word}')">重试</button>
+                    <button class="btn-secondary" onclick="skipAICheck('${word}')">跳过检查，继续</button>
+                </div>
+            </div>`;
+    });
+}
+
+function skipAICheck(word) {
+    const s1 = document.getElementById('sentence1').value.trim();
+    const s2 = document.getElementById('sentence2').value.trim();
+    const s3 = document.getElementById('sentence3').value.trim();
     sentenceData[word] = [s1, s2, s3];
-    showFeedback('✓ 很好！继续下一个单词', 'success');
+    showFeedback('✓ 继续下一个单词', 'success');
     setTimeout(showNextSentence, 800);
+}
+
+function retryAICheck(word) {
+    const s1 = document.getElementById('sentence1').value.trim();
+    const s2 = document.getElementById('sentence2').value.trim();
+    const s3 = document.getElementById('sentence3').value.trim();
+
+    if (!s1 || !s2 || !s3) {
+        alert('请完成所有3个句子');
+        return;
+    }
+
+    const wordLower = word.toLowerCase();
+    const allContainWord = [s1, s2, s3].every(s => s.toLowerCase().includes(wordLower));
+    if (!allContainWord) {
+        alert(`请确保每个句子都包含单词 "${word}"`);
+        return;
+    }
+
+    document.getElementById('sentenceResult').innerHTML = '';
+    doAICheck(word, [s1, s2, s3]);
 }
 
 function renderGrammar() {

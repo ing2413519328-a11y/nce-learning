@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新概念英语第一册学习系统</title>
-    <link rel="stylesheet" href="styles.css?v=4">
+    <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
     <div class="container">
@@ -17,6 +17,7 @@
             <div style="display:flex; gap:10px; justify-content:center; margin-top:15px;">
                 <button class="btn-lesson-select" id="btnLessonSelect">📋 选择课程</button>
                 <button class="btn-lesson-select" onclick="showMistakeBook()">📖 错题本</button>
+                <button class="btn-lesson-select" onclick="showAISettings()">🤖 AI 检测</button>
             </div>
         </header>
 
@@ -42,9 +43,47 @@
         </div>
     </div>
 
-    <script src="lessons.js?v=4"></script>
-    <script src="review.js?v=4"></script>
-    <script src="app.js?v=4"></script>
+    <!-- AI 设置弹窗 -->
+    <div id="aiSettingsModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>🤖 AI 语法检测设置</h2>
+                <button class="modal-close" onclick="closeAISettings()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:#64748b;margin-bottom:20px;line-height:1.6;">
+                    配置 OpenAI 兼容的 API，在造句训练中自动检测语法和通顺度。
+                    支持 OpenAI、DeepSeek、通义千问等任意兼容接口。
+                </p>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;color:#475569;font-weight:500;margin-bottom:5px;">API 地址</label>
+                    <input type="url" id="aiBaseUrl" class="spelling-input"
+                           placeholder="https://api.openai.com/v1"
+                           style="text-align:left;font-size:1em;">
+                </div>
+                <div style="margin-bottom:15px;">
+                    <label style="display:block;color:#475569;font-weight:500;margin-bottom:5px;">API Key</label>
+                    <input type="password" id="aiApiKey" class="spelling-input"
+                           placeholder="sk-..."
+                           style="text-align:left;font-size:1em;">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;color:#475569;font-weight:500;margin-bottom:5px;">模型名称</label>
+                    <input type="text" id="aiModel" class="spelling-input"
+                           placeholder="gpt-4o-mini"
+                           style="text-align:left;font-size:1em;">
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn-secondary" onclick="closeAISettings()">取消</button>
+                    <button class="btn-primary" onclick="saveAISettings()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lessons.js?v=5"></script>
+    <script src="review.js?v=5"></script>
+    <script src="app.js?v=5"></script>
     <script>
         // 检查是否需要复习或测试
         document.addEventListener('DOMContentLoaded', () => {
