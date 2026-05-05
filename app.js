@@ -39,6 +39,10 @@ let listeningResults = [];
 let isReviewMode = false;
 let reviewItems = [];
 let reviewBusy = false;
+let aiGrammarQuestions = null;   // current lesson's AI grammar questions
+let aiGrammarLessonId = -1;      // which lesson aiGrammarQuestions is for
+let aiListeningContent = null;   // current lesson's AI listening content
+let aiListeningLessonId = -1;    // which lesson aiListeningContent is for
 let aiConfig = loadAIConfig();
 
 // ====== AI 配置 ======
@@ -151,10 +155,18 @@ function loadStage(stage) {
             initSentence();
             break;
         case 'grammar':
-            app.innerHTML = renderGrammar();
+            if (aiConfig.apiKey && aiGrammarLessonId !== currentLesson) {
+                initAIGrammar();
+            } else {
+                app.innerHTML = renderGrammar();
+            }
             break;
         case 'listening':
-            app.innerHTML = renderListening();
+            if (aiConfig.apiKey && aiListeningLessonId !== currentLesson) {
+                initAIListening();
+            } else {
+                app.innerHTML = renderListening();
+            }
             break;
         case 'review':
             renderReview();
@@ -792,15 +804,178 @@ function retryAICheck(word) {
     doAICheck(word, [s1, s2, s3]);
 }
 
+// ====== AI Grammar/Listening 辅助 ======
+
+function getGrammarQuestions() {
+    return aiGrammarQuestions || lessons[currentLesson].grammar;
+}
+
+function getListeningContent() {
+    return aiListeningContent || lessons[currentLesson].listening;
+}
+
+function getCachedAIGrammar(lessonId) {
+    try { return JSON.parse(localStorage.getItem('nceAIG_' + lessonId)); } catch(e) { return null; }
+}
+
+function cacheAIGrammar(lessonId, data) {
+    localStorage.setItem('nceAIG_' + lessonId, JSON.stringify(data));
+}
+
+function getCachedAIListening(lessonId) {
+    try { return JSON.parse(localStorage.getItem('nceAIL_' + lessonId)); } catch(e) { return null; }
+}
+
+function cacheAIListening(lessonId, data) {
+    localStorage.setItem('nceAIL_' + lessonId, JSON.stringify(data));
+}
+
+function clearAIContent() {
+    aiGrammarQuestions = null;
+    aiListeningContent = null;
+}
+
+async function generateGrammarQuestions(lesson) {
+    const vocabs = lesson.vocabulary.map(v => v.word + ' (' + v.translation + ')').join('、');
+    const prompt = 'You are an English teacher creating grammar questions for "New Concept English Book 1".\n\n' +
+        'Lesson ' + lesson.id + ': ' + lesson.title + '\n' +
+        'Vocabulary: ' + vocabs + '\n\n' +
+        'Create 10 multiple-choice grammar questions at elementary level (CEFR A1-A2). Each question must:\n' +
+        '- Test grammar points appropriate for this lesson\'s level\n' +
+        '- Use vocabulary from this lesson\n' +
+        '- Have exactly 4 options with one correct answer\n' +
+        '- Include a brief Chinese explanation of the grammar point\n\n' +
+        'Respond ONLY with a JSON object, no markdown:\n' +
+        '{"questions":[{"question":"...","options":["a","b","c","d"],"correct":0,"explanation":"Chinese explanation"}]}';
+
+    const config = getAIConfig();
+    const response = await fetch(config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
+        body: JSON.stringify({
+            model: config.model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+            max_tokens: 3000
+        }),
+        signal: AbortSignal.timeout(30000)
+    });
+
+    if (!response.ok) throw new Error('API error ' + response.status);
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('Empty response');
+
+    let jsonStr = content.trim();
+    const m = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (m) jsonStr = m[1];
+    return JSON.parse(jsonStr).questions;
+}
+
+async function generateListeningContent(lesson) {
+    const vocabs = lesson.vocabulary.map(v => v.word + ' (' + v.translation + ')').join('、');
+    const prompt = 'You are an English teacher creating listening exercises for "New Concept English Book 1".\n\n' +
+        'Lesson ' + lesson.id + ': ' + lesson.title + '\n' +
+        'Vocabulary: ' + vocabs + '\n\n' +
+        'Create a short natural dialogue (4-6 exchanges) between two speakers using vocabulary from this lesson.\n' +
+        'Then create 3 comprehension questions about the dialogue.\n\n' +
+        'Respond ONLY with a JSON object, no markdown:\n' +
+        '{"dialogue":"A: ...\\nB: ...","questions":[{"question":"...","options":["a","b","c","d"],"correct":0,"explanation":"Chinese explanation"}]}';
+
+    const config = getAIConfig();
+    const response = await fetch(config.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.apiKey },
+        body: JSON.stringify({
+            model: config.model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.3,
+            max_tokens: 3000
+        }),
+        signal: AbortSignal.timeout(30000)
+    });
+
+    if (!response.ok) throw new Error('API error ' + response.status);
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('Empty response');
+
+    let jsonStr = content.trim();
+    const m = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (m) jsonStr = m[1];
+    return JSON.parse(jsonStr);
+}
+
+function initAIGrammar() {
+    const lesson = lessons[currentLesson];
+    const app = document.getElementById('app');
+    const cached = getCachedAIGrammar(lesson.id);
+    if (cached) {
+        aiGrammarQuestions = cached;
+        aiGrammarLessonId = currentLesson;
+        app.innerHTML = renderGrammar() + '<p style="text-align:center;color:#64748b;font-size:0.85em;margin-top:-10px;">🤖 AI 生成 · <a href="#" onclick="event.preventDefault();switchToPresetGrammar()" style="color:#667eea;">使用预设题目</a></p>';
+        return;
+    }
+
+    app.innerHTML = '<div class="stage-container" style="text-align:center;"><h2>📖 语法测试</h2><p class="stage-desc">AI 正在生成题目...</p><div style="padding:60px 20px;"><p style="font-size:1.3em;color:#667eea;">⏳ 正在根据本课内容生成语法题...</p><p style="color:#94a3b8;margin-top:10px;">首次生成约需 10-15 秒，之后会缓存</p></div></div>';
+
+    generateGrammarQuestions(lesson).then(questions => {
+        aiGrammarQuestions = questions;
+        aiGrammarLessonId = currentLesson;
+        cacheAIGrammar(lesson.id, questions);
+        app.innerHTML = renderGrammar() + '<p style="text-align:center;color:#64748b;font-size:0.85em;margin-top:-10px;">🤖 AI 生成 · <a href="#" onclick="event.preventDefault();switchToPresetGrammar()" style="color:#667eea;">使用预设题目</a></p>';
+        grammarResults = [];
+    }).catch(err => {
+        console.error('AI grammar generation failed:', err);
+        showFeedback('AI 生成失败：' + err.message + '，使用预设题目', 'error');
+        app.innerHTML = renderGrammar();
+    });
+}
+
+function initAIListening() {
+    const lesson = lessons[currentLesson];
+    const app = document.getElementById('app');
+    const cached = getCachedAIListening(lesson.id);
+    if (cached) {
+        aiListeningContent = cached;
+        aiListeningLessonId = currentLesson;
+        app.innerHTML = renderListening();
+        return;
+    }
+
+    app.innerHTML = '<div class="stage-container" style="text-align:center;"><h2>🎧 听力测试</h2><p class="stage-desc">AI 正在生成对话...</p><div style="padding:60px 20px;"><p style="font-size:1.3em;color:#667eea;">⏳ 正在生成听力对话...</p><p style="color:#94a3b8;margin-top:10px;">首次生成约需 10-15 秒，之后会缓存</p></div></div>';
+
+    generateListeningContent(lesson).then(content => {
+        aiListeningContent = content;
+        aiListeningLessonId = currentLesson;
+        cacheAIListening(lesson.id, content);
+        app.innerHTML = renderListening();
+        listeningResults = [];
+    }).catch(err => {
+        console.error('AI listening generation failed:', err);
+        showFeedback('AI 生成失败：' + err.message + '，使用预设题目', 'error');
+        app.innerHTML = renderListening();
+    });
+}
+
+function switchToPresetGrammar() {
+    aiGrammarQuestions = null;
+    aiGrammarLessonId = -1;
+    const app = document.getElementById('app');
+    app.innerHTML = renderGrammar();
+    grammarResults = [];
+}
+
 function renderGrammar() {
     const lesson = lessons[currentLesson];
+    const questions = getGrammarQuestions();
     return `
         <div class="stage-container">
             <h2>📖 语法测试</h2>
             <p class="stage-desc">完成语法选择题，必须全部正确才能继续</p>
 
             <div id="grammarTest">
-                ${lesson.grammar.map((q, i) => `
+                ${questions.map((q, i) => `
                     <div class="question-card">
                         <p class="question-text">${i + 1}. ${q.question}</p>
                         <div class="options">
@@ -829,14 +1004,15 @@ function selectGrammar(questionIndex, optionIndex) {
 
 function submitGrammar() {
     const lesson = lessons[currentLesson];
+    const questions = getGrammarQuestions();
 
-    if (grammarResults.length < lesson.grammar.length) {
+    if (grammarResults.length < questions.length) {
         alert('请完成所有题目');
         return;
     }
 
     let allCorrect = true;
-    lesson.grammar.forEach((q, i) => {
+    questions.forEach((q, i) => {
         const feedback = document.getElementById(`grammar-feedback-${i}`);
         const userChoice = grammarResults[i];
         const userAnswer = q.options[userChoice] || '未作答';
@@ -914,7 +1090,7 @@ function submitGrammar() {
         const container = document.getElementById('grammarTest');
         container.insertAdjacentHTML('afterend', `
             <div style="text-align: center; margin-top: 20px;">
-                <p style="color:#991b1b; margin-bottom:12px; font-weight:bold;">有 ${lesson.grammar.length - grammarResults.filter(r => r !== undefined && lesson.grammar[r]?.correct === r).length} 道题错误，请查看解析后重试</p>
+                <p style="color:#991b1b; margin-bottom:12px; font-weight:bold;">有 ${questions.length - grammarResults.filter(r => r !== undefined && questions[r]?.correct === r).length} 道题错误，请查看解析后重试</p>
                 <button class="btn-primary" onclick="loadStage('grammar')" style="background:#ef4444; font-size:1.1em; padding:14px 40px;">
                     重新作答
                 </button>
@@ -925,6 +1101,7 @@ function submitGrammar() {
 
 function renderListening() {
     const lesson = lessons[currentLesson];
+    const lc = getListeningContent();
     return `
         <div class="stage-container">
             <h2>🎧 听力测试</h2>
@@ -936,11 +1113,11 @@ function renderListening() {
             </div>
 
             <div class="transcript" id="transcript" style="display:none;">
-                <p>${lesson.listening.dialogue}</p>
+                <p>${lc.dialogue}</p>
             </div>
 
             <div id="listeningTest">
-                ${lesson.listening.questions.map((q, i) => `
+                ${lc.questions.map((q, i) => `
                     <div class="question-card">
                         <p class="question-text">${i + 1}. ${q.question}</p>
                         <div class="options">
@@ -960,7 +1137,8 @@ function renderListening() {
 
 function playDialogue() {
     const lesson = lessons[currentLesson];
-    const utterance = new SpeechSynthesisUtterance(lesson.listening.dialogue);
+    const lc = getListeningContent();
+    const utterance = new SpeechSynthesisUtterance(lc.dialogue);
     utterance.lang = 'en-US';
     utterance.rate = 0.8;
     speechSynthesis.speak(utterance);
@@ -982,14 +1160,15 @@ function selectListening(questionIndex, optionIndex) {
 
 function submitListening() {
     const lesson = lessons[currentLesson];
+    const lc = getListeningContent();
 
-    if (listeningResults.length < lesson.listening.questions.length) {
+    if (listeningResults.length < lc.questions.length) {
         alert('请完成所有题目');
         return;
     }
 
     let allCorrect = true;
-    lesson.listening.questions.forEach((q, i) => {
+    lc.questions.forEach((q, i) => {
         const feedback = document.getElementById(`listening-feedback-${i}`);
         if (listeningResults[i] === q.correct) {
             feedback.innerHTML = `<p class="correct">✓ 正确！</p>`;
